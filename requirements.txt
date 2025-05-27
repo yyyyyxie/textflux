@@ -1,0 +1,32 @@
+accelerate
+deepspeed
+einops
+transformers==4.43.3
+huggingface-hub
+optimum-quanto 
+datasets
+omegaconf
+diffusers==0.32.1
+sentencepiece
+opencv-python
+matplotlib
+onnxruntime
+timm
+invisible-watermark  # 下两个是flux里的,我后加的库
+wandb
+gguf
+fire
+# bitsandbytes==0.44.1 # torch2.5
+bitsandbytes
+peft
+gradio==3.50.1
+streamlit==1.27.2
+ujson
+addict==2.4.0
+pytorch_lightning
+scikit-image
+modelscope==1.10.0
+Levenshtein
+easydict
+pytorch_fid
+lpips
