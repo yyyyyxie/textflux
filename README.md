@@ -23,6 +23,7 @@
   <p align="left">
     <strong>English</strong> | <a href="./README_CN.md"><strong>中文简体</strong></a>
   </p>
+  
 **TextFlux** is an **OCR-free framework** using a Diffusion Transformer (DiT, based on [FLUX.1-Fill-dev](https://github.com/black-forest-labs/flux)) for high-fidelity multilingual scene text synthesis. It simplifies the learning task by providing direct visual glyph guidance through spatial concatenation of rendered glyphs with the scene image, enabling the model to focus on contextual reasoning and visual fusion.
 
 ## Key Features
