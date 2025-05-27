@@ -2,7 +2,7 @@
 
 <div style="display: flex; justify-content: center; align-items: center;">
   <a href="https://arxiv.org/abs/2505.17778">
-    <img src='https://img.shields.io/badge/arXiv-2407.15886-red?style=flat&logo=arXiv&logoColor=red' alt='arxiv'>
+    <img src='https://img.shields.io/badge/arXiv-2505.17778-red?style=flat&logo=arXiv&logoColor=red' alt='arxiv'>
   </a>
   <a href='https://huggingface.co/yyyyyxie/textflux'>
     <img src='https://img.shields.io/badge/Hugging Face-ckpts-orange?style=flat&logo=HuggingFace&logoColor=orange' alt='huggingface'>
