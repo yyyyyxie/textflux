@@ -52,6 +52,8 @@
 2. **Dependencies:**
 
 ```bash
+conda create -n textflux python==3.11.4 -y
+conda activate textflux
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 pip install -r requirements.txt
