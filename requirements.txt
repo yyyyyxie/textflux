@@ -12,7 +12,7 @@ opencv-python
 matplotlib
 onnxruntime
 timm
-invisible-watermark  # 下两个是flux里的,我后加的库
+invisible-watermark 
 wandb
 gguf
 fire
