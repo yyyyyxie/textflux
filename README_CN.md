@@ -29,7 +29,7 @@
 ## 主要特性
 
 * **OCR-free：** 简化的架构，无需OCR编码器。
-* **高保真和上下文风格：** 精确渲染，与场景风格一致。
+* **高保真且上下文风格一致：** 精确渲染，与场景风格一致。
 * **多语言和低资源：** 在各种语言中表现出色，仅需少量数据（例如，少于1000张图片）即可适应新语言。
 * **零样本泛化：** 能够渲染训练期间未见过的字符。
 * **可控多行文本：** 灵活的多行文本合成，具有行级控制能力。
@@ -49,6 +49,8 @@
 1.  **克隆/下载：** 获取必要的代码和模型权重。
 2.  **依赖项：**
     ```bash
+    conda create -n textflux python==3.11.4 -y
+    conda activate textflux
     pip3 install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu118](https://download.pytorch.org/whl/cu118)
     pip install -r requirements.txt
     # 确保 diffusers >= 0.32.1
