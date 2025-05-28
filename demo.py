@@ -11,12 +11,11 @@ import uuid
 # from gradio_canvas import Canvas
 
 
-
 def read_words_from_text(input_text):
     """
-    读取文本/单词列表：
-      - 如果 input_text 为文件路径，则从文件中读取所有非空行；
-      - 否则直接按换行拆分成列表。
+    Reads words/list of words:
+      - If input_text is a file path, it reads all non-empty lines from the file.
+      - Otherwise, it directly splits the input by newlines into a list.
     """
     if isinstance(input_text, str) and os.path.exists(input_text):
         with open(input_text, 'r', encoding='utf-8') as f:
@@ -26,10 +25,6 @@ def read_words_from_text(input_text):
     return words
 
 def generate_prompt(words):
-    """
-    根据文本列表生成提示词：
-      将每个文本用英文单引号包裹后填入预设模板中，生成完整提示词。
-    """
     words_str = ', '.join(f"'{word}'" for word in words)
     prompt_template = (
         "The pair of images highlights some white words on a black background, as well as their style on a real-world scene image. "
@@ -48,10 +43,6 @@ prompt_template2 = (
 
 PIPE = None
 def load_flux_pipeline():
-    """
-    加载 Flux 模型 pipeline，转移到 CUDA 并采用 bfloat16 数据类型。
-    使用全局变量缓存，避免重复加载。
-    """
     global PIPE
     if PIPE is None:
         transformer = FluxTransformer2DModel.from_pretrained(
@@ -69,12 +60,12 @@ def load_flux_pipeline():
 
 def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_scale=30, seed=42):
     """
-    调用 Flux 模型 pipeline 进行推理：
-      - 输入 image_input 与 mask_input 均要求为拼接后的复合图像；
-      - 自动调整图片尺寸为 32 的倍数以满足模型输入要求；
-      - 根据单词列表生成提示词，并传入 pipeline 执行推理。
+    Invokes the Flux model pipeline for inference:
+      - Both image_input and mask_input are required to be concatenated composite images.
+      - Automatically adjusts image dimensions to be multiples of 32 to meet model input requirements.
+      - Generates a prompt based on the word list and passes it to the pipeline for inference execution.
     """
-    # 加载图片（支持文件路径或 PIL.Image）
+
     if isinstance(image_input, str):
         inpaint_image = load_image(image_input).convert("RGB")
     else:
@@ -84,19 +75,16 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     else:
         extended_mask = mask_input.convert("RGB")
     
-    # 调整尺寸为 32 的倍数
     width, height = inpaint_image.size
     new_width = (width // 32) * 32
     new_height = (height // 32) * 32
     inpaint_image = inpaint_image.resize((new_width, new_height))
     extended_mask = extended_mask.resize((new_width, new_height))
     
-    # 处理文本输入
     words = read_words_from_text(words_input)
     prompt = generate_prompt(words)
-    print("生成的提示词:", prompt)
+    print("Generated prompt:", prompt)
     
-    # 图像预处理（转 Tensor 及归一化）
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])
@@ -125,25 +113,25 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     return result
 
 # =============================================================================
-# 3. 普通模式：直接调用推理
+# 3. Normal Mode: Direct Inference Call
 # =============================================================================
 def flux_demo_normal(image, mask, words, steps, guidance_scale, seed):
     """
-    普通模式的 Gradio 主函数：
-      - 直接将输入的图片、Mask和单词列表传入 run_inference 进行推理；
-      - 返回生成的结果图像。
+    Gradio main function for normal mode:
+      - Directly passes the input image, mask, and word list to run_inference for inference.
+      - Returns the generated result image.
     """
     result = run_inference(image, mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
     return result
 
 # =============================================================================
-# 4. 自定义模式：预处理 Mask、区域文字渲染、拼接复合图像
+# 4. Custom Mode: Mask Preprocessing, Region Text Rendering, and Composite Image Concatenation
 # =============================================================================
 def extract_mask(original, drawn, threshold=30):
     """
-    从原始图片与用户手绘后的图像中提取二值 mask：
-      - 如果 drawn 为 dict 且包含 "mask" 键，则直接对该 mask 二值化；
-      - 否则采用反转与差分方法提取 mask。
+    Extracts a binary mask from the original image and the user-drawn image:
+      - If 'drawn' is a dictionary and contains a "mask" key, that mask is directly binarized.
+      - Otherwise, the mask is extracted using inversion and differentiation methods.
     """
     if isinstance(drawn, dict):
         if "mask" in drawn and drawn["mask"] is not None:
@@ -164,7 +152,7 @@ def extract_mask(original, drawn, threshold=30):
 
 def insert_spaces(text, num_spaces):
     """
-    在每个字符之间插入指定数量的空格，用于调整文字渲染时的间距。
+    Inserts a specified number of spaces between each character to adjust the spacing during text rendering.
     """
     if len(text) <= 1:
         return text
@@ -184,15 +172,14 @@ def draw_glyph2(
     downsample_resample=Image.Resampling.LANCZOS
 ):
     """
-    在指定区域内（由 polygon 定义）渲染倾斜/弯曲文字：
-      - 先放大（超采样）后旋转、再下采样以保证高质量；
-      - 根据区域形状动态调整字体大小及是否需要在字符间插入空格。
-    返回最终下采样到目标尺寸 (height, width) 的 RGBA numpy 数组。
+    Renders skewed/curved text within a specified region (defined by polygon):
+      - Upsamples (supersamples) then rotates, then downsamples to ensure high quality.
+      - Dynamically adjusts font size and whether to insert spaces between characters based on the region's shape.
+    Returns the final downsampled RGBA numpy array to the target dimensions (height, width).
     """
     big_w = width * scale_factor
     big_h = height * scale_factor
 
-    # 放大 polygon 坐标
     big_polygon = polygon * scale_factor * scale
     rect = cv2.minAreaRect(big_polygon.astype(np.float32))
     box = cv2.boxPoints(rect)
@@ -214,7 +201,6 @@ def draw_glyph2(
             vert = True
             angle = 0
 
-    # 创建大图与临时白底图
     big_img = Image.new("RGBA", (big_w, big_h), (0, 0, 0, 0))
     tmp = Image.new("RGB", big_img.size, "white")
     tmp_draw = ImageDraw.Draw(tmp)
@@ -248,7 +234,6 @@ def draw_glyph2(
     text_width = right - left
     text_height = bottom - top
 
-    # 创建透明文字渲染层
     layer = Image.new("RGBA", big_img.size, (0, 0, 0, 0))
     draw_layer = ImageDraw.Draw(layer)
     cx, cy = rect[0]
@@ -285,10 +270,10 @@ def draw_glyph2(
 
 def render_glyph_multi(original, computed_mask, texts):
     """
-    针对 computed_mask 中每个独立区域：
-      - 通过轮廓提取区域位置，并按从上到下、从左到右排序；
-      - 调用 draw_glyph2 在各区域内渲染对应文本（支持倾斜/弯曲）；
-      - 将各区域的渲染结果叠加到一张透明黑底图上，输出最终渲染图。
+    For each independent region in computed_mask:
+      - Extracts region locations via contour detection and sorts them from top to bottom, then left to right.
+      - Calls draw_glyph2 to render corresponding text within each region (supports skewing/curving).
+      - Overlays the rendering results of each region onto a transparent black background, outputting the final rendered image.
     """
     mask_np = np.array(computed_mask.convert("L"))
     contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -333,20 +318,20 @@ def render_glyph_multi(original, computed_mask, texts):
 
 def choose_concat_direction(height, width):
     """
-    根据原图宽高比选择拼接方向：
-      - 若高度大于宽度，则采用水平拼接；
-      - 否则采用垂直拼接。
+    Selects the concatenation direction based on the original image's aspect ratio:
+      - If height is greater than width, horizontal concatenation is used.
+      - Otherwise, vertical concatenation is used.
     """
     return 'horizontal' if height > width else 'vertical'
 
 def get_next_seq_number():
     """
-    从 outputs_my 目录中查找下一个可用的顺序编号（格式为 0001,0002,...）。
-    当 'result_XXXX.png' 不存在时，即认为该编号可用，返回格式化字符串 XXXX。
+    Finds the next available sequential number (format: 0001, 0002,...) in the 'outputs_my' directory.
+    When 'result_XXXX.png' does not exist, that number is considered available, and the formatted string XXXX is returned.
     """
     counter = 1
     while True:
-        seq_str = f"{counter:04d}"  # 格式化为4位数字，例如 "0001"
+        seq_str = f"{counter:04d}"  
         result_path = os.path.join("outputs_my", f"result_{seq_str}.png")
         if not os.path.exists(result_path):
             return seq_str
@@ -354,12 +339,12 @@ def get_next_seq_number():
 
 def flux_demo_custom(original_image, drawn_mask, words, steps, guidance_scale, seed):
     """
-    自定义模式的 Gradio 主函数：
-      1. 从原图和用户手绘数据提取二值 mask；
-      2. 将用户输入的文本按行拆分成列表，每行对应一个 mask 区域；
-      3. 针对每个独立区域调用 render_glyph_multi 渲染倾斜/弯曲文字，生成渲染图；
-      4. 根据原图尺寸选择拼接方向，将【渲染图, 原图】与【纯黑 mask, computed_mask】分别拼接成复合图像；
-      5. 将拼接后的图像传入 run_inference，返回生成结果及拼接预览图。
+    Gradio main function for custom mode:
+      1. Extracts a binary mask from the original image and user-drawn data.
+      2. Splits the user-input text into a list by line, with each line corresponding to a mask region.
+      3. Calls render_glyph_multi for each independent region to render skewed/curved text, generating a rendered image.
+      4. Selects the concatenation direction based on the original image's dimensions, concatenating [rendered_image, original_image] and [pure_black_mask, computed_mask] into composite images respectively.
+      5. Passes the concatenated images to run_inference, returning the generated result and a concatenated preview image.
     """
     computed_mask = extract_mask(original_image, drawn_mask)
     texts = read_words_from_text(words)
@@ -382,104 +367,93 @@ def flux_demo_custom(original_image, drawn_mask, words, steps, guidance_scale, s
     
     result = run_inference(composite_image, composite_mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
 
-    # 裁剪结果，只保留场景图片部分
+    # Crop the result, keeping only the scene image portion.
     width, height = result.size
-    if direction == 'horizontal':  # 水平拼接
+    if direction == 'horizontal': 
         cropped_result = result.crop((width // 2, 0, width, height))
-    else:  # 垂直拼接
+    else: 
         cropped_result = result.crop((0, height // 2, width, height))
     
-    # 保存裁剪后的结果
+    # Save results
     os.makedirs("outputs_my", exist_ok=True)
     os.makedirs("outputs_my/crop", exist_ok=True)
     os.makedirs("outputs_my/mask", exist_ok=True)
     os.makedirs("outputs_my/ori", exist_ok=True)
-    # os.makedirs("outputs_my/composite", exist_ok=True)  # 新增用于保存拼接图片的目录
-    os.makedirs("outputs_my/txt", exist_ok=True)  # 新增用于保存文本的目录
+    # os.makedirs("outputs_my/composite", exist_ok=True)  
+    os.makedirs("outputs_my/txt", exist_ok=True) 
 
-    # 获取下一个可用的顺序编号
     seq = get_next_seq_number()
 
-    # 根据编号生成文件名
     result_filename = os.path.join("outputs_my", f"result_{seq}.png")
     crop_filename = os.path.join("outputs_my", "crop", f"crop_{seq}.png")
     mask_filename = os.path.join("outputs_my", "mask", f"mask_{seq}.png")
-    ori_filename = os.path.join("outputs_my", "ori", f"ori_{seq}.png")  # 原始图片的文件名
-    # composite_filename = os.path.join("outputs_my", "composite", f"composite_{seq}.png")  # 拼接图片
-    txt_filename = os.path.join("outputs_my", "txt", f"words_{seq}.txt")  # 输入文本的文件名
+    ori_filename = os.path.join("outputs_my", "ori", f"ori_{seq}.png")  
+    # composite_filename = os.path.join("outputs_my", "composite", f"composite_{seq}.png") 
+    txt_filename = os.path.join("outputs_my", "txt", f"words_{seq}.txt") 
 
 
-    # 保存图片
+    # Save images
     result.save(result_filename)
     cropped_result.save(crop_filename)
     computed_mask.save(mask_filename)
-    original_image.save(ori_filename)  # 保存输入的原始图片
-    # composite_image.save(composite_filename)  # 保存拼接后的图片
-    # 保存用户输入的文本到 txt 文件中
+    original_image.save(ori_filename)  
+    # composite_image.save(composite_filename) 
     with open(txt_filename, "w", encoding="utf-8") as f:
         f.write(words)
 
-    # unique_id = uuid.uuid4().hex[:8]
-    # result_filename = f"outputs_my/result_{unique_id}.png"
-    # crop_filename = f"outputs_my/crop/crop_{unique_id}.png"
-    # result.save(result_filename)
-    # cropped_result.save(crop_filename)
-    # computed_mask.save(f"outputs_my/mask/mask_{unique_id}.png")
-    # return result, composite_image, composite_mask
     return cropped_result, composite_image, composite_mask
 
 
 # =============================================================================
-# 5. Gradio 界面（使用 Tabs 分页区分两种模式）
+# 5. Gradio Interface (using Tabs to differentiate between two modes)
 # =============================================================================
-with gr.Blocks(title="Flux 推理 Demo") as demo:
+with gr.Blocks(title="Flux Inference Demo") as demo:
     gr.Markdown("## Flux Inference Demo")
     
     with gr.Tabs():
-        # ---------------- 普通模式 ----------------
-        with gr.TabItem("普通模式"):
+        with gr.TabItem("Normal Mode"):
             with gr.Row():
                 with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### 图片输入")
-                    image_normal = gr.Image(type="pil", label="输入图片")
-                    gr.Markdown("### Mask 输入")
-                    mask_normal = gr.Image(type="pil", label="输入 Mask")
+                    gr.Markdown("### Image Input")
+                    image_normal = gr.Image(type="pil", label="Image Input")
+                    gr.Markdown("### Mask Input")
+                    mask_normal = gr.Image(type="pil", label="Mask Input")
                 with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### 参数设置")
-                    words_normal = gr.Textbox(lines=5, placeholder="请在此输入单词，每行一个", label="单词列表")
-                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="推理步数")
+                    gr.Markdown("### Parameter Settings")
+                    words_normal = gr.Textbox(lines=5, placeholder="Please enter words here, one per line", label="Text List")
+                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
                     guidance_scale_normal = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
-                    seed_normal = gr.Number(value=42, label="随机种子")
-                    run_normal = gr.Button("生成结果")
-            output_normal = gr.Image(type="pil", label="生成结果")
+                    seed_normal = gr.Number(value=42, label="Random Seed")
+                    run_normal = gr.Button("Generated Results")
+            output_normal = gr.Image(type="pil", label="Generated Results")
             run_normal.click(fn=flux_demo_normal, 
                              inputs=[image_normal, mask_normal, words_normal, steps_normal, guidance_scale_normal, seed_normal],
                              outputs=output_normal)
         
-        # ---------------- 自定义模式 ----------------
-        with gr.TabItem("自定义模式"):
+
+        with gr.TabItem("Custom mode"):
             with gr.Row():
                 with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### 图片输入")
-                    original_image_custom = gr.Image(type="pil", label="上传原始图片")
-                    gr.Markdown("### 手绘 Mask")
-                    mask_drawing_custom = gr.Image(type="pil", label="在原图上手绘 Mask", tool="sketch")
+                    gr.Markdown("### Image Input")
+                    original_image_custom = gr.Image(type="pil", label="Upload Original Image")
+                    gr.Markdown("### Drawn Mask")
+                    mask_drawing_custom = gr.Image(type="pil", label="Draw Mask on Original Image", tool="sketch")
 
                 with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### 参数设置")
-                    words_custom = gr.Textbox(lines=5, placeholder="请每行输入对应文本（对应每个 mask 区域）", label="文本列表")
-                    steps_custom = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="推理步数")
+                    gr.Markdown("### Parameter Settings")
+                    words_custom = gr.Textbox(lines=5, placeholder="Please enter the corresponding text for each line (corresponding to each mask region)", label="Text List")
+                    steps_custom = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
                     guidance_scale_custom = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
-                    seed_custom = gr.Number(value=42, label="随机种子")
-                    run_custom = gr.Button("生成结果")
-            # 输出区域采用 Tabs 分页展示生成结果及输入预览图
+                    seed_custom = gr.Number(value=42, label="Random Seed")
+                    run_custom = gr.Button("Generated Results")
+
             with gr.Tabs():
-                with gr.TabItem("生成结果"):
-                    output_result_custom = gr.Image(type="pil", label="生成结果")
-                with gr.TabItem("输入预览"):
-                    output_composite_custom = gr.Image(type="pil", label="拼接后的原图")
-                    output_mask_custom = gr.Image(type="pil", label="拼接后的 Mask")
-            # 同步原图到手绘 Mask（方便用户直接在原图上绘制）
+                with gr.TabItem("Generated Results"):
+                    output_result_custom = gr.Image(type="pil", label="Generated Results")
+                with gr.TabItem("Input Preview"):
+                    output_composite_custom = gr.Image(type="pil", label="Concatenated Original Image")
+                    output_mask_custom = gr.Image(type="pil", label="Concatenated Mask")
+
             original_image_custom.change(fn=lambda x: x, inputs=original_image_custom, outputs=mask_drawing_custom)
             run_custom.click(fn=flux_demo_custom, 
                              inputs=[original_image_custom, mask_drawing_custom, words_custom, steps_custom, guidance_scale_custom, seed_custom],
@@ -487,9 +461,9 @@ with gr.Blocks(title="Flux 推理 Demo") as demo:
     
     gr.Markdown(
         """
-        ### 使用说明
-        - 普通模式：直接上传图片、Mask及单词列表，生成结果图像。
-        - 自定义模式：上传原始图片后在上面手绘 Mask，再输入对应每个区域的文本，生成区域文字渲染后拼接的复合图像，并进行推理。
+        ### Instructions
+        - **Normal Mode**: Directly upload an image, mask, and a list of words to generate the result image.
+        - **Custom Mode**: Upload an original image, then draw a mask on it. Enter the corresponding text for each masked region to generate a composite image with rendered text in those areas, and then perform inference.
         """
     )
 
