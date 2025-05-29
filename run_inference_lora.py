@@ -44,7 +44,7 @@ def load_flux_pipeline():
         )
 
         state_dict, network_alphas = FluxFillPipeline.lora_state_dict(
-            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-lora",     ## The tryon Lora weights
+            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-lora",     
             return_alphas=True
         )
         
