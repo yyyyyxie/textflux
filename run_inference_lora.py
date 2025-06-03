@@ -44,7 +44,7 @@ def load_flux_pipeline():
         )
 
         state_dict, network_alphas = FluxFillPipeline.lora_state_dict(
-            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-lora",     
+            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-lora/pytorch_lora_weights.safetensors",     
             return_alphas=True
         )
         
