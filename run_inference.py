@@ -1,12 +1,13 @@
-import os
-import torch
-import numpy as np
-import cv2
 import argparse
+import os
+
+import cv2
+import numpy as np
+import torch
 from diffusers import FluxFillPipeline, FluxTransformer2DModel
 from diffusers.utils import check_min_version, load_image
-from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
+from torchvision import transforms
 
 
 def read_words_from_text(input_text):
@@ -65,17 +66,6 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     words = read_words_from_text(words_input)
     prompt = generate_prompt(words)
     print("Generated prompt:", prompt)
-    
-    # Image preprocessing
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5])
-    ])
-    mask_transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
-    image_tensor = transform(inpaint_image)
-    mask_tensor = mask_transform(extended_mask)
     
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()

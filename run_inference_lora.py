@@ -83,17 +83,6 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     prompt = generate_prompt(words)
     print("Generated prompt:", prompt)
     
-    # Image preprocessing
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5])
-    ])
-    mask_transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
-    image_tensor = transform(inpaint_image)
-    mask_tensor = mask_transform(extended_mask)
-    
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()
     result = pipe(

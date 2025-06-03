@@ -431,7 +431,7 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
                              outputs=output_normal)
         
 
-        with gr.TabItem("Custom mode"):
+        with gr.TabItem("Custom Mode"):
             with gr.Row():
                 with gr.Column(scale=1, min_width=350):
                     gr.Markdown("### Image Input")
