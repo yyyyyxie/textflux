@@ -57,8 +57,7 @@ conda activate textflux
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 pip install -r requirements.txt
-# Ensure diffusers >= 0.32.1
-# Ensure gradio == 3.50.1
+# Ensure diffusers >= 0.32.1 and gradio == 3.50.1
 ```
 
 

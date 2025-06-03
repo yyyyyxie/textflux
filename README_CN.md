@@ -16,8 +16,8 @@
   <a href='https://yyyyyxie.github.io/textflux-site/'>
     <img src='https://img.shields.io/badge/Webpage-Project-silver?style=flat&logo=&logoColor=orange' alt='webpage'>
   </a>
-  <a href="https://huggingface.co/yyyyyxie/textflux">
-  <img src="https://img.shields.io/badge/🤗_HuggingFace-Dataset-ffbd45.svg" alt="HuggingFace">
+  <a href="https://modelscope.cn/models/xieyu20001003/textflux">
+  <img src="https://img.shields.io/badge/🤗_ModelScope-ckpts-ffbd45.svg" alt="ModelScope">
   </a>
 </div>
   <p align="left">
@@ -53,7 +53,7 @@
     conda activate textflux
     pip3 install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu118](https://download.pytorch.org/whl/cu118)
     pip install -r requirements.txt
-    # 确保 diffusers >= 0.32.1
+    # 确保 diffusers >= 0.32.1 以及 gradio == 3.50.1
     ```
 
 ## Gradio 演示
