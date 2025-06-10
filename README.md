@@ -17,7 +17,7 @@
     <img src='https://img.shields.io/badge/Webpage-Project-silver?style=flat&logo=&logoColor=orange' alt='webpage'>
   </a>
   <a href="https://modelscope.cn/models/xieyu20001003/textflux">
-  <img src="https://img.shields.io/badge/🤗_ModelScope-ckpts-ffbd45.svg" alt="ModelScope">
+  <img src="https://img.shields.io/badge/🤖_ModelScope-ckpts-ffbd45.svg" alt="ModelScope">
   </a>
 </div>
   <p align="left">
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 ## Gradio Demo
 
-Provides "Normal Mode" (for pre-combined inputs) and "Custom Mode" (upload scene, draw masks, input text for automatic template generation and concatenation).
+Provides "Normal Mode" (for pre-combined inputs) and "Custom Mode" (upload scene image, draw masks, input text for automatic template generation).
 ```bash
 python demo.py
 ```

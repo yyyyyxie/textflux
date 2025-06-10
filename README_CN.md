@@ -17,7 +17,7 @@
     <img src='https://img.shields.io/badge/Webpage-Project-silver?style=flat&logo=&logoColor=orange' alt='webpage'>
   </a>
   <a href="https://modelscope.cn/models/xieyu20001003/textflux">
-  <img src="https://img.shields.io/badge/🤗_ModelScope-ckpts-ffbd45.svg" alt="ModelScope">
+  <img src="https://img.shields.io/badge/🤖_ModelScope-ckpts-ffbd45.svg" alt="ModelScope">
   </a>
 </div>
   <p align="left">
@@ -58,7 +58,7 @@
 
 ## Gradio 演示
 
-提供“普通模式”（用于预组合的输入）和“自定义模式”（上传场景、绘制蒙版、输入文本以自动生成模板并进行拼接）。
+提供“普通模式”（用于预组合的输入）和“自定义模式”（上传场景图片、自行手动绘制掩码、输入文本以自动生成模板）。
 
 ```bash
 python demo.py
