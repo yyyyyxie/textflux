@@ -8,8 +8,6 @@ from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
 import gradio as gr
 import uuid
-# from gradio_canvas import Canvas
-
 
 def read_words_from_text(input_text):
     """
@@ -411,26 +409,6 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
     gr.Markdown("## Flux Inference Demo")
     
     with gr.Tabs():
-        with gr.TabItem("Normal Mode"):
-            with gr.Row():
-                with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### Image Input")
-                    image_normal = gr.Image(type="pil", label="Image Input")
-                    gr.Markdown("### Mask Input")
-                    mask_normal = gr.Image(type="pil", label="Mask Input")
-                with gr.Column(scale=1, min_width=350):
-                    gr.Markdown("### Parameter Settings")
-                    words_normal = gr.Textbox(lines=5, placeholder="Please enter words here, one per line", label="Text List")
-                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
-                    guidance_scale_normal = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
-                    seed_normal = gr.Number(value=42, label="Random Seed")
-                    run_normal = gr.Button("Generated Results")
-            output_normal = gr.Image(type="pil", label="Generated Results")
-            run_normal.click(fn=flux_demo_normal, 
-                             inputs=[image_normal, mask_normal, words_normal, steps_normal, guidance_scale_normal, seed_normal],
-                             outputs=output_normal)
-        
-
         with gr.TabItem("Custom Mode"):
             with gr.Row():
                 with gr.Column(scale=1, min_width=350):
@@ -459,15 +437,35 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
                              inputs=[original_image_custom, mask_drawing_custom, words_custom, steps_custom, guidance_scale_custom, seed_custom],
                              outputs=[output_result_custom, output_composite_custom, output_mask_custom])
     
+
+        with gr.TabItem("Normal Mode"):
+            with gr.Row():
+                with gr.Column(scale=1, min_width=350):
+                    gr.Markdown("### Image Input")
+                    image_normal = gr.Image(type="pil", label="Image Input")
+                    gr.Markdown("### Mask Input")
+                    mask_normal = gr.Image(type="pil", label="Mask Input")
+                with gr.Column(scale=1, min_width=350):
+                    gr.Markdown("### Parameter Settings")
+                    words_normal = gr.Textbox(lines=5, placeholder="Please enter words here, one per line", label="Text List")
+                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
+                    guidance_scale_normal = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
+                    seed_normal = gr.Number(value=42, label="Random Seed")
+                    run_normal = gr.Button("Generated Results")
+            output_normal = gr.Image(type="pil", label="Generated Results")
+            run_normal.click(fn=flux_demo_normal, 
+                             inputs=[image_normal, mask_normal, words_normal, steps_normal, guidance_scale_normal, seed_normal],
+                             outputs=output_normal)
+
     gr.Markdown(
         """
         ### Instructions
-        - **Normal Mode**: Directly upload an image, mask, and a list of words to generate the result image.
         - **Custom Mode**: Upload an original image, then draw a mask on it. Enter the corresponding text for each masked region to generate a composite image with rendered text in those areas, and then perform inference.
+        - **Normal Mode**: Directly upload an image, mask, and a list of words to generate the result image.
         """
     )
 
 if __name__ == "__main__":
-    check_min_version("0.32.1")
+    check_min_version("0.30.1")
     demo.launch()
 
