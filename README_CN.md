@@ -23,7 +23,6 @@
   <p align="left">
     <strong>中文简体</strong> | <a href="./README.md"><strong>English</strong></a>
   </p>
-
 **TextFlux** 是一个**OCR-free的框架**，它使用 Diffusion Transformer (DiT，基于 [FLUX.1-Fill-dev](https://github.com/black-forest-labs/flux)) 来实现高保真的多语言场景文本合成。它通过将渲染的字形与场景图像进行空间拼接，为模型提供直接的视觉字形指导，从而简化了学习任务，使模型能够专注于上下文推理和视觉融合。
 
 ## 主要特性
@@ -39,10 +38,29 @@
   <img src="resource/abstract_fig.png" width="100%" height="100%"/>
 </div>
 
+
 ## 最新动态
 
+-   **`2025/05/27`**: 我们的 [**textflux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) 权重和 [**textflux-lora-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) 权重现已发布! 单行文本生成的效果获得极大提升，分别提升**10.9%** , **11.2%** 👋! 
+-   **`2025/08/02`**: 我们的[**训练集**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 和 [**测试集**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) 现已发布 👋!
+-   **`2025/08/01`**: 我们的 [**评估脚本**](https://github.com/yyyyyxie/textflux/tree/main/eval) 现已发布 👋!
 -   **`2025/05/27`**: 我们的 [**全参数权重**](https://huggingface.co/yyyyyxie/textflux) 和 [**LoRA 权重**](https://huggingface.co/yyyyyxie/textflux-lora) 现已发布 🤗！
 -   **`2025/05/25`**: 我们的 [**论文已在 ArXiv 上发布**](https://arxiv.org/abs/2505.17778) 🥳！
+
+
+
+## TextFlux-beta的单行测试集结果
+
+此表格展示了 TextFlux-beta 模型在单行文本编辑上获得了约 11 个点的极大性能提升! 并且推理速度相比于之前提升了 1.4 倍！，其中[**AMO Sampler**](https://github.com/hxixixh/amo-release)带来3个点左右的增幅。采用的测试集上 [ReCTS editing](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets)。新版权重在这里（[**textflux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) , [**textflux-lora-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta)。
+
+| Method             | SeqAcc-Editing (%)↑ | NED (%)↑ |  FID ↓   |  LPIPS ↓  | Inference Speed (s/img)↓ |
+| ------------------ | :-----------------: | :------: | :------: | :-------: | :----------------------: |
+| TextFlux-LoRA      |        37.2         |   58.2   |   4.93   |   0.063   |           16.8           |
+| TextFlux           |        40.6         |   60.7   |   4.84   |   0.062   |           15.6           |
+| TextFlux-LoRA-beta |        48.4         |   70.5   |   4.69   |   0.062   |           12.0           |
+| TextFlux-beta      |      **51.5**       | **72.9** | **4.59** | **0.061** |         **10.9**         |
+
+
 
 ## 安装
 
@@ -56,6 +74,8 @@
     # 确保 diffusers >= 0.32.1 以及 gradio == 3.50.1
     ```
 
+
+
 ## Gradio 演示
 
 提供“普通模式”（用于预组合的输入）和“自定义模式”（上传场景图片、自行手动绘制掩码、输入文本以自动生成模板）。
@@ -64,16 +84,21 @@
 python demo.py
 ```
 
+
+
 ## TODO
 
-- [ ] 发布训练数据集和测试数据集
-- [ ] 发布训练脚本
-- [ ] 发布评估脚本
+- [x] 发布训练数据集和测试数据集
+- [x] 发布训练脚本
+- [x] 发布评估脚本
 - [ ] 支持 ComfyUI
+
+
 
 ## 致谢
 
-我们的代码基于 [Diffusers](https://github.com/huggingface/diffusers) 修改。我们采用 [black-forest-labs/FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) 作为基础模型。感谢所有贡献者参与的讨论！
+我们的代码基于 [Diffusers](https://github.com/huggingface/diffusers) 修改。我们采用 [black-forest-labs/FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) 作为基础模型。感谢所有贡献者参与的讨论！真诚感谢以下代码仓库给予的贡献[AnyText](https://github.com/tyxsspa/AnyText), [AMO](https://github.com/hxixixh/amo-release)。
+
 
 
 ## 引用

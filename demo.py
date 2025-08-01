@@ -9,11 +9,13 @@ from PIL import Image, ImageDraw, ImageFont
 import gradio as gr
 import uuid
 
+WEIGHT_PATH = "outputs/textflux-beta/checkpoint-10000/transformer"  # yyyyyxie/textflux
+
 def read_words_from_text(input_text):
     """
     Reads words/list of words:
-      - If input_text is a file path, it reads all non-empty lines from the file.
-      - Otherwise, it directly splits the input by newlines into a list.
+    - If input_text is a file path, it reads all non-empty lines from the file.
+    - Otherwise, it directly splits the input by newlines into a list.
     """
     if isinstance(input_text, str) and os.path.exists(input_text):
         with open(input_text, 'r', encoding='utf-8') as f:
@@ -31,21 +33,18 @@ def generate_prompt(words):
     )
     return prompt_template.format(words=words_str)
 
-
 prompt_template2 = (
     "The pair of images highlights some white words on a black background, as well as their style on a real-world scene image. "
     "[IMAGE1] is a template image rendering the text, with the words; "
     "[IMAGE2] shows the text content naturally and correspondingly integrated into the image."
 )
 
-
 PIPE = None
 def load_flux_pipeline():
     global PIPE
     if PIPE is None:
         transformer = FluxTransformer2DModel.from_pretrained(
-            "yyyyyxie/textflux",
-            # "black-forest-labs/FLUX.1-Fill-dev/transformer",
+            WEIGHT_PATH,
             torch_dtype=torch.bfloat16
         )
         PIPE = FluxFillPipeline.from_pretrained(
@@ -59,11 +58,10 @@ def load_flux_pipeline():
 def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_scale=30, seed=42):
     """
     Invokes the Flux model pipeline for inference:
-      - Both image_input and mask_input are required to be concatenated composite images.
-      - Automatically adjusts image dimensions to be multiples of 32 to meet model input requirements.
-      - Generates a prompt based on the word list and passes it to the pipeline for inference execution.
+    - Both image_input and mask_input are required to be concatenated composite images.
+    - Automatically adjusts image dimensions to be multiples of 32 to meet model input requirements.
+    - Generates a prompt based on the word list and passes it to the pipeline for inference execution.
     """
-
     if isinstance(image_input, str):
         inpaint_image = load_image(image_input).convert("RGB")
     else:
@@ -72,17 +70,14 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
         extended_mask = load_image(mask_input).convert("RGB")
     else:
         extended_mask = mask_input.convert("RGB")
-    
     width, height = inpaint_image.size
     new_width = (width // 32) * 32
     new_height = (height // 32) * 32
     inpaint_image = inpaint_image.resize((new_width, new_height))
     extended_mask = extended_mask.resize((new_width, new_height))
-    
     words = read_words_from_text(words_input)
     prompt = generate_prompt(words)
     print("Generated prompt:", prompt)
-    
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])
@@ -92,7 +87,6 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     ])
     image_tensor = transform(inpaint_image)
     mask_tensor = mask_transform(extended_mask)
-    
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()
     result = pipe(
@@ -111,25 +105,25 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     return result
 
 # =============================================================================
-# 3. Normal Mode: Direct Inference Call
+# Normal Mode: Direct Inference Call
 # =============================================================================
 def flux_demo_normal(image, mask, words, steps, guidance_scale, seed):
     """
     Gradio main function for normal mode:
-      - Directly passes the input image, mask, and word list to run_inference for inference.
-      - Returns the generated result image.
+    - Directly passes the input image, mask, and word list to run_inference for inference.
+    - Returns the generated result image.
     """
     result = run_inference(image, mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
     return result
 
 # =============================================================================
-# 4. Custom Mode: Mask Preprocessing, Region Text Rendering, and Composite Image Concatenation
+# Helper functions for both single-line and multi-line rendering
 # =============================================================================
 def extract_mask(original, drawn, threshold=30):
     """
     Extracts a binary mask from the original image and the user-drawn image:
-      - If 'drawn' is a dictionary and contains a "mask" key, that mask is directly binarized.
-      - Otherwise, the mask is extracted using inversion and differentiation methods.
+    - If 'drawn' is a dictionary and contains a "mask" key, that mask is directly binarized.
+    - Otherwise, the mask is extracted using inversion and differentiation methods.
     """
     if isinstance(drawn, dict):
         if "mask" in drawn and drawn["mask"] is not None:
@@ -148,6 +142,66 @@ def extract_mask(original, drawn, threshold=30):
     binary_mask = (diff_gray > threshold).astype(np.uint8) * 255
     return Image.fromarray(binary_mask).convert("RGB")
 
+def get_next_seq_number():
+    """
+    Finds the next available sequential number (format: 0001, 0002,...) in the 'outputs_my' directory.
+    When 'result_XXXX.png' does not exist, that number is considered available, and the formatted string XXXX is returned.
+    """
+    counter = 1
+    while True:
+        seq_str = f"{counter:04d}"
+        result_path = os.path.join("outputs_my", f"result_{seq_str}.png")
+        if not os.path.exists(result_path):
+            return seq_str
+        counter += 1
+
+# =============================================================================
+# Single-line text rendering functions
+# =============================================================================
+def draw_glyph_flexible(font, text, width, height, max_font_size=140):
+    """
+    Renders text horizontally centered on a canvas of specified size and returns a PIL Image.
+    Font size is automatically adjusted to fit the canvas and is limited by max_font_size.
+    """
+    img = Image.new(mode='RGB', size=(width, height), color='black')
+    if not text or not text.strip():
+        return img
+    draw = ImageDraw.Draw(img)
+
+    # Initial font size for calculating scale ratio
+    g_size = 50
+    try:
+        new_font = font.font_variant(size=g_size)
+    except:
+        new_font = font
+
+    left, top, right, bottom = new_font.getbbox(text)
+    text_width_initial = max(right - left, 1)
+    text_height_initial = max(bottom - top, 1)
+
+    # Calculate scale ratios based on width and height
+    width_ratio = width * 0.9 / text_width_initial
+    height_ratio = height * 0.9 / text_height_initial
+    ratio = min(width_ratio, height_ratio)
+
+    # Adjust maximum font size based on original image width
+    if width > 1280:
+        max_font_size = 200
+    final_font_size = int(g_size * ratio)
+    final_font_size = min(final_font_size, max_font_size)  # Apply upper limit
+
+    # Use the final calculated font size
+    try:
+        final_font = font.font_variant(size=max(final_font_size, 10))
+    except:
+        final_font = font
+
+    draw.text((width / 2, height / 2), text, font=final_font, fill='white', anchor='mm')
+    return img
+
+# =============================================================================
+# Multi-line text rendering functions
+# =============================================================================
 def insert_spaces(text, num_spaces):
     """
     Inserts a specified number of spaces between each character to adjust the spacing during text rendering.
@@ -155,6 +209,7 @@ def insert_spaces(text, num_spaces):
     if len(text) <= 1:
         return text
     return (' ' * num_spaces).join(list(text))
+
 
 def draw_glyph2(
     font,
@@ -169,12 +224,6 @@ def draw_glyph2(
     rotate_resample=Image.BICUBIC,
     downsample_resample=Image.Resampling.LANCZOS
 ):
-    """
-    Renders skewed/curved text within a specified region (defined by polygon):
-      - Upsamples (supersamples) then rotates, then downsamples to ensure high quality.
-      - Dynamically adjusts font size and whether to insert spaces between characters based on the region's shape.
-    Returns the final downsampled RGBA numpy array to the target dimensions (height, width).
-    """
     big_w = width * scale_factor
     big_h = height * scale_factor
 
@@ -267,12 +316,6 @@ def draw_glyph2(
     return final_np
 
 def render_glyph_multi(original, computed_mask, texts):
-    """
-    For each independent region in computed_mask:
-      - Extracts region locations via contour detection and sorts them from top to bottom, then left to right.
-      - Calls draw_glyph2 to render corresponding text within each region (supports skewing/curving).
-      - Overlays the rendering results of each region onto a transparent black background, outputting the final rendered image.
-    """
     mask_np = np.array(computed_mask.convert("L"))
     contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     regions = []
@@ -285,7 +328,7 @@ def render_glyph_multi(original, computed_mask, texts):
     
     render_img = Image.new("RGBA", original.size, (0, 0, 0, 0))
     try:
-        base_font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 40)
+        base_font = ImageFont.truetype("font/Arial-Unicode-Regular.ttf", 40)
     except:
         base_font = ImageFont.load_default()
     
@@ -314,43 +357,54 @@ def render_glyph_multi(original, computed_mask, texts):
         render_img = Image.alpha_composite(render_img, rendered_img)
     return render_img.convert("RGB")
 
+
 def choose_concat_direction(height, width):
     """
     Selects the concatenation direction based on the original image's aspect ratio:
-      - If height is greater than width, horizontal concatenation is used.
-      - Otherwise, vertical concatenation is used.
+    - If height is greater than width, horizontal concatenation is used.
+    - Otherwise, vertical concatenation is used.
     """
     return 'horizontal' if height > width else 'vertical'
 
-def get_next_seq_number():
+def is_multiline_text(text):
     """
-    Finds the next available sequential number (format: 0001, 0002,...) in the 'outputs_my' directory.
-    When 'result_XXXX.png' does not exist, that number is considered available, and the formatted string XXXX is returned.
+    Determines if the input text should be treated as multi-line based on line breaks.
     """
-    counter = 1
-    while True:
-        seq_str = f"{counter:04d}"  
-        result_path = os.path.join("outputs_my", f"result_{seq_str}.png")
-        if not os.path.exists(result_path):
-            return seq_str
-        counter += 1
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return len(lines) > 1
 
+# =============================================================================
+# Custom Mode: Unified function that handles both single-line and multi-line
+# =============================================================================
 def flux_demo_custom(original_image, drawn_mask, words, steps, guidance_scale, seed):
     """
-    Gradio main function for custom mode:
-      1. Extracts a binary mask from the original image and user-drawn data.
-      2. Splits the user-input text into a list by line, with each line corresponding to a mask region.
-      3. Calls render_glyph_multi for each independent region to render skewed/curved text, generating a rendered image.
-      4. Selects the concatenation direction based on the original image's dimensions, concatenating [rendered_image, original_image] and [pure_black_mask, computed_mask] into composite images respectively.
-      5. Passes the concatenated images to run_inference, returning the generated result and a concatenated preview image.
+    Unified custom mode Gradio main function:
+    - Automatically detects whether to use single-line or multi-line rendering based on input text
+    - If text contains line breaks, uses multi-line rendering
+    - If text is single line, uses single-line rendering
     """
     computed_mask = extract_mask(original_image, drawn_mask)
+    
+    # Determine rendering mode based on text input
+    if is_multiline_text(words):
+        print("Using multi-line text rendering mode")
+        return flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed)
+    else:
+        print("Using single-line text rendering mode")
+        return flux_demo_custom_singleline(original_image, computed_mask, words, steps, guidance_scale, seed)
+
+def flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed):
+    """
+    Multi-line rendering mode:
+    1. Splits the user-input text into a list by line, with each line corresponding to a mask region.
+    2. Calls render_glyph_multi for each independent region to render skewed/curved text, generating a rendered image.
+    3. Selects the concatenation direction based on the original image's dimensions.
+    4. Passes the concatenated images to run_inference, returning the generated result and cropped image.
+    """
     texts = read_words_from_text(words)
     render_img = render_glyph_multi(original_image, computed_mask, texts)
-    
     width, height = original_image.size
     empty_mask = np.zeros((height, width), dtype=np.uint8)
-    
     direction = choose_concat_direction(height, width)
     if direction == 'horizontal':
         combined_image = np.hstack((np.array(render_img), np.array(original_image)))
@@ -358,72 +412,119 @@ def flux_demo_custom(original_image, drawn_mask, words, steps, guidance_scale, s
     else:
         combined_image = np.vstack((np.array(render_img), np.array(original_image)))
         combined_mask = np.vstack((empty_mask, np.array(computed_mask.convert("L"))))
-    
     combined_mask = cv2.cvtColor(combined_mask, cv2.COLOR_GRAY2RGB)
     composite_image = Image.fromarray(combined_image)
     composite_mask = Image.fromarray(combined_mask)
-    
     result = run_inference(composite_image, composite_mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
 
     # Crop the result, keeping only the scene image portion.
     width, height = result.size
-    if direction == 'horizontal': 
+    if direction == 'horizontal':
         cropped_result = result.crop((width // 2, 0, width, height))
-    else: 
+    else:
         cropped_result = result.crop((0, height // 2, width, height))
     
-    # Save results
+    save_results(result, cropped_result, computed_mask, original_image, composite_image, words)
+    return cropped_result, composite_image, composite_mask
+
+def flux_demo_custom_singleline(original_image, computed_mask, words, steps, guidance_scale, seed):
+    """
+    Single-line rendering mode:
+    1. Concatenates user input text into a single line.
+    2. Renders single-line text above the original image.
+    3. Calls model inference and crops the result precisely.
+    """
+    # Process text, concatenate into single line
+    text_lines = read_words_from_text(words)
+    single_line_text = ' '.join(text_lines)
+
+    # Calculate dimensions and generate concatenated image and mask
+    w, h = original_image.size
+    text_height_ratio = 0.15625
+    text_render_height = int(w * text_height_ratio)
+    
+    # Load font
+    try:
+        font = ImageFont.truetype("font/Arial-Unicode-Regular.ttf", 60)
+    except IOError:
+        font = ImageFont.load_default()
+        print("Warning: Font not found, using default font.")
+
+    # Render single-line text image
+    text_render_pil = draw_glyph_flexible(font, single_line_text, width=w, height=text_render_height)
+    # Create pure black mask with same size as text rendering
+    text_mask_pil = Image.new("RGB", text_render_pil.size, "black")
+    
+    # Always use vertical concatenation
+    composite_image = Image.fromarray(np.vstack((np.array(text_render_pil), np.array(original_image))))
+    composite_mask = Image.fromarray(np.vstack((np.array(text_mask_pil), np.array(computed_mask))))
+    
+    # Call model inference
+    full_result = run_inference(composite_image, composite_mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
+
+    # Crop result proportionally, keeping only the scene image portion
+    res_w, res_h = full_result.size
+    orig_h = h  # Original scene image height
+    # Calculate crop line top edge position
+    crop_top_edge = int(res_h * (text_render_height / (orig_h + text_render_height)))
+    cropped_result = full_result.crop((0, crop_top_edge, res_w, res_h))
+    
+    save_results(full_result, cropped_result, computed_mask, original_image, composite_image, words)
+    return cropped_result, composite_image, composite_mask
+
+def save_results(result, cropped_result, computed_mask, original_image, composite_image, words):
+    """
+    Save all related images and text files
+    """
     os.makedirs("outputs_my", exist_ok=True)
     os.makedirs("outputs_my/crop", exist_ok=True)
     os.makedirs("outputs_my/mask", exist_ok=True)
     os.makedirs("outputs_my/ori", exist_ok=True)
-    # os.makedirs("outputs_my/composite", exist_ok=True)  
-    os.makedirs("outputs_my/txt", exist_ok=True) 
+    os.makedirs("outputs_my/composite", exist_ok=True)
+    os.makedirs("outputs_my/txt", exist_ok=True)
 
     seq = get_next_seq_number()
-
     result_filename = os.path.join("outputs_my", f"result_{seq}.png")
     crop_filename = os.path.join("outputs_my", "crop", f"crop_{seq}.png")
     mask_filename = os.path.join("outputs_my", "mask", f"mask_{seq}.png")
-    ori_filename = os.path.join("outputs_my", "ori", f"ori_{seq}.png")  
-    # composite_filename = os.path.join("outputs_my", "composite", f"composite_{seq}.png") 
-    txt_filename = os.path.join("outputs_my", "txt", f"words_{seq}.txt") 
-
+    ori_filename = os.path.join("outputs_my", "ori", f"ori_{seq}.png")
+    composite_filename = os.path.join("outputs_my", "composite", f"composite_{seq}.png")
+    txt_filename = os.path.join("outputs_my", "txt", f"words_{seq}.txt")
 
     # Save images
     result.save(result_filename)
     cropped_result.save(crop_filename)
     computed_mask.save(mask_filename)
-    original_image.save(ori_filename)  
-    # composite_image.save(composite_filename) 
+    original_image.save(ori_filename)
+    composite_image.save(composite_filename)
     with open(txt_filename, "w", encoding="utf-8") as f:
         f.write(words)
 
-    return cropped_result, composite_image, composite_mask
-
-
 # =============================================================================
-# 5. Gradio Interface (using Tabs to differentiate between two modes)
+# Gradio Interface
 # =============================================================================
 with gr.Blocks(title="Flux Inference Demo") as demo:
     gr.Markdown("## Flux Inference Demo")
-    
     with gr.Tabs():
         with gr.TabItem("Custom Mode"):
             with gr.Row():
                 with gr.Column(scale=1, min_width=350):
                     gr.Markdown("### Image Input")
                     original_image_custom = gr.Image(type="pil", label="Upload Original Image")
-                    gr.Markdown("### Drawn Mask")
+                    gr.Markdown("### Draw Mask on Image")
                     mask_drawing_custom = gr.Image(type="pil", label="Draw Mask on Original Image", tool="sketch")
 
                 with gr.Column(scale=1, min_width=350):
                     gr.Markdown("### Parameter Settings")
-                    words_custom = gr.Textbox(lines=5, placeholder="Please enter the corresponding text for each line (corresponding to each mask region)", label="Text List")
-                    steps_custom = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
+                    words_custom = gr.Textbox(
+                        lines=5, 
+                        placeholder="Enter text here (single line recommended, faster and stronger).\nMultiple lines are supported, with each line rendered in corresponding mask regions.", 
+                        label="Text Input"
+                    )
+                    steps_custom = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Steps")
                     guidance_scale_custom = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
                     seed_custom = gr.Number(value=42, label="Random Seed")
-                    run_custom = gr.Button("Generated Results")
+                    run_custom = gr.Button("Generate Results")
 
             with gr.Tabs():
                 with gr.TabItem("Generated Results"):
@@ -433,10 +534,9 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
                     output_mask_custom = gr.Image(type="pil", label="Concatenated Mask")
 
             original_image_custom.change(fn=lambda x: x, inputs=original_image_custom, outputs=mask_drawing_custom)
-            run_custom.click(fn=flux_demo_custom, 
-                             inputs=[original_image_custom, mask_drawing_custom, words_custom, steps_custom, guidance_scale_custom, seed_custom],
-                             outputs=[output_result_custom, output_composite_custom, output_mask_custom])
-    
+            run_custom.click(fn=flux_demo_custom,
+                inputs=[original_image_custom, mask_drawing_custom, words_custom, steps_custom, guidance_scale_custom, seed_custom],
+                outputs=[output_result_custom, output_composite_custom, output_mask_custom])
 
         with gr.TabItem("Normal Mode"):
             with gr.Row():
@@ -448,19 +548,23 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
                 with gr.Column(scale=1, min_width=350):
                     gr.Markdown("### Parameter Settings")
                     words_normal = gr.Textbox(lines=5, placeholder="Please enter words here, one per line", label="Text List")
-                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Step")
+                    steps_normal = gr.Slider(minimum=10, maximum=100, step=1, value=30, label="Inference Steps")
                     guidance_scale_normal = gr.Slider(minimum=1, maximum=50, step=1, value=30, label="Guidance Scale")
                     seed_normal = gr.Number(value=42, label="Random Seed")
-                    run_normal = gr.Button("Generated Results")
-            output_normal = gr.Image(type="pil", label="Generated Results")
-            run_normal.click(fn=flux_demo_normal, 
-                             inputs=[image_normal, mask_normal, words_normal, steps_normal, guidance_scale_normal, seed_normal],
-                             outputs=output_normal)
+                    run_normal = gr.Button("Generate Results")
+                    output_normal = gr.Image(type="pil", label="Generated Results")
+            run_normal.click(fn=flux_demo_normal,
+                inputs=[image_normal, mask_normal, words_normal, steps_normal, guidance_scale_normal, seed_normal],
+                outputs=output_normal)
 
     gr.Markdown(
         """
         ### Instructions
-        - **Custom Mode**: Upload an original image, then draw a mask on it. Enter the corresponding text for each masked region to generate a composite image with rendered text in those areas, and then perform inference.
+        - **Custom Mode**: 
+          - Upload an original image, then draw a mask on it
+          - **Single-line mode**: Enter text without line breaks - all text will be joined and rendered as one line above the image
+          - **Multi-line mode**: Enter text with line breaks - each line will be rendered in the corresponding mask region with skewed/curved effects
+          - The system automatically detects which mode to use based on your text input
         - **Normal Mode**: Directly upload an image, mask, and a list of words to generate the result image.
         """
     )
@@ -468,4 +572,3 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
 if __name__ == "__main__":
     check_min_version("0.30.1")
     demo.launch()
-
