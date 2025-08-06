@@ -2,18 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import os
-import multiprocessing
-import torch
-import numpy as np
 import json
+import multiprocessing
+import os
+
+import cv2
+import numpy as np
+import torch
+from PIL import Image, ImageDraw, ImageFont
+from torchvision import transforms
+from tqdm import tqdm
+
 from diffusers import FluxFillPipeline, FluxTransformer2DModel
 # from diffusers import FluxFillPipeline, FluxTransformer2DModel, StochasticRFOvershotDiscreteScheduler
 from diffusers.utils import check_min_version, load_image
-from torchvision import transforms
-from PIL import Image, ImageDraw, ImageFont
-from tqdm import tqdm
-import cv2
 
 
 def draw_glyph_flexible(font, text, width, height, max_font_size=140):

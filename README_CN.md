@@ -41,8 +41,50 @@
 
 ## 最新动态
 
+-   **`2025/08/02`**: 我们的全参数  [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) 权重和 [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) 权重现已发布！单行文本生成准确率分别显著提升了 **10.9% 和 11.2%** 👋！
+-   **`2025/08/02`**: [**训练集**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 和 [**测试集**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) 现已可获得👋!
+-   **`2025/08/01`**: 我们的 [**评估脚本**](https://huggingface.co/yyyyyxie/textflux) 现已可获得 👋!
 -   **`2025/05/27`**: 我们的 [**全参数权重**](https://huggingface.co/yyyyyxie/textflux) 和 [**LoRA 权重**](https://huggingface.co/yyyyyxie/textflux-lora) 现已发布 🤗！
 -   **`2025/05/25`**: 我们的 [**论文已在 ArXiv 上发布**](https://arxiv.org/abs/2505.17778) 🥳！
+
+
+
+## TextFlux-beta 版本
+
+我们发布了 [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) 和 [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta)， 这是我们专为单行文本编辑任务优化的新版本模型。
+
+### 核心优势
+
+- **显著提升**单行文本的渲染质量。
+- 将单行文本的**推理速度提升**约 **1.4 倍**。
+- **大幅增强**小尺寸文本的合成准确率。
+
+### 实现原理
+
+我们考虑到单行编辑是许多用户的核心应用场景，并且通常能产生更稳定、更高质量的结果。为此，我们专门发布了针对该场景优化的新权重。
+
+与原版模型将字形渲染在与原图相同大小的掩码上不同，beta版本采用了更高效的**紧凑单行图像条 (compact, single-line image strip)** 作为字形条件。这种方法不仅节省了不必要的计算开销，还能提供一个更稳定、更高质量的监督信号，从而直接带来了在单行文本和小文本渲染上的显著性能提升。类似于:
+
+<div align="center">
+  <img src="resource/demo_singleline.png" width="62.5%" height="62.5%"/>
+</div>
+
+
+
+请参考更新后的 demo.py、run_inference.py 和 run_inference_lora.py 文件来使用新模型。尽管beta版本保留了生成多行文本的能力，我们**强烈推荐**在单行任务中使用它，以获得最佳的性能和稳定性。
+
+### 性能表现
+
+下表展示了 TextFlux-beta 模型在单行文本编辑任务上取得了卓越的 **~11 个点的SeqAcc提升**，同时将**推理速度提升了1.4倍以上**。评估在ReCTS编辑测试集上进行。
+
+| 方法               | SeqAcc-Editing (%)↑ | NED (%)↑ | FID ↓ | LPIPS ↓ | 推理速度 (s/img)↓ |
+| ------------------ | ------------------- | -------- | ----- | ------- | ----------------- |
+| TextFlux-LoRA      | 37.2                | 58.2     | 4.93  | 0.063   | 16.8              |
+| TextFlux           | 40.6                | 60.7     | 4.84  | 0.062   | 15.6              |
+| TextFlux-LoRA-beta | 48.4                | 70.5     | 4.69  | 0.062   | 12.0              |
+| TextFlux-beta      | **51.5**            | **72.9** | 4.59  | 0.061   | **10.9**          |
+
+
 
 ## 安装
 
@@ -66,16 +108,68 @@
 python demo.py
 ```
 
+
+
+## 训练
+
+要复现论文中的结果，你需要下载 [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) 数据集，并执行 scripts/train.sh 中的多行训练命令。
+
+```
+bash scripts/train.sh
+```
+
+或者
+
+```
+bash scripts/train_lora.sh
+```
+
+
+
+在训练针对单行任务优化的beta版本权重时，我们通过加载多行   [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) 和 [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora) 的权重，继续微调了 10,000 步。你需要下载[**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 数据集，并执行 scripts/train.sh 中的单行训练命令。
+
+```
+bash scripts/train.sh
+```
+
+or
+
+```
+bash scripts/train_lora.sh
+```
+
+
+
+## 评估
+
+首先，使用 scripts/batch_eval.sh 脚本批量推理测试集中的图片。
+
+```
+bash scripts/batch_eval.sh
+```
+
+推理完成后，使用 eval/eval_ocr.sh 评估 OCR 准确度，并使用 eval/eval_fid_lpips.sh 评估 FID 和 LPIPS 指标。
+
+```
+bash eval/eval_ocr.sh
+```
+
+```
+bash eval/eval_fid_lpips.sh
+```
+
+
+
 ## TODO
 
-- [ ] 发布训练数据集和测试数据集
-- [ ] 发布训练脚本
-- [ ] 发布评估脚本
+- [x] 发布训练数据集和测试数据集
+- [x] 发布训练脚本
+- [x] 发布评估脚本
 - [ ] 支持 ComfyUI
 
 ## 致谢
 
-我们的代码基于 [Diffusers](https://github.com/huggingface/diffusers) 修改。我们采用 [black-forest-labs/FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) 作为基础模型。感谢所有贡献者参与的讨论！
+我们的代码基于 [Diffusers](https://github.com/huggingface/diffusers) 修改。我们采用 [black-forest-labs/FLUX.1-Fill-dev](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) 作为基础模型。感谢所有贡献者参与的讨论！同样真挚地感谢以下代码仓： [AnyText](https://github.com/tyxsspa/AnyText), [AMO](https://github.com/hxixixh/amo-release)。
 
 
 ## 引用

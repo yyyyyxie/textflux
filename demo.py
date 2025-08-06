@@ -1,15 +1,20 @@
 import os
-import torch
-import numpy as np
-import cv2
-from diffusers import FluxFillPipeline, FluxTransformer2DModel
-from diffusers.utils import check_min_version, load_image
-from torchvision import transforms
-from PIL import Image, ImageDraw, ImageFont
-import gradio as gr
 import uuid
 
-WEIGHT_PATH = "outputs/textflux-beta/checkpoint-10000/transformer"  # yyyyyxie/textflux
+import cv2
+import gradio as gr
+import numpy as np
+import torch
+from PIL import Image, ImageDraw, ImageFont
+from torchvision import transforms
+
+from diffusers import FluxFillPipeline, FluxTransformer2DModel
+from diffusers.utils import check_min_version, load_image
+
+WEIGHT_PATH = "yyyyyxie/textflux-beta/transformer"  # yyyyyxie/textflux
+# scheduler = "overshoot" # overshoot or default
+scheduler = "default"
+
 
 def read_words_from_text(input_text):
     """
@@ -89,6 +94,21 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     mask_tensor = mask_transform(extended_mask)
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()
+
+    if scheduler == "overshoot":
+        try:
+            from diffusers import StochasticRFOvershotDiscreteScheduler
+            scheduler_config = pipe.scheduler.config
+            scheduler = StochasticRFOvershotDiscreteScheduler.from_config(scheduler_config)
+            overshot_func = lambda t, dt: t + dt
+            
+            pipe.scheduler = scheduler
+            pipe.scheduler.set_c(2.0)
+            pipe.scheduler.set_overshot_func(overshot_func)
+        except ImportError:
+            print("StochasticRFOvershotDiscreteScheduler not found. Please ensure you have used the repo's diffusers.")
+            pass
+
     result = pipe(
         height=new_height,
         width=new_width,
@@ -328,7 +348,7 @@ def render_glyph_multi(original, computed_mask, texts):
     
     render_img = Image.new("RGBA", original.size, (0, 0, 0, 0))
     try:
-        base_font = ImageFont.truetype("font/Arial-Unicode-Regular.ttf", 40)
+        base_font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 40)
     except:
         base_font = ImageFont.load_default()
     
@@ -445,7 +465,7 @@ def flux_demo_custom_singleline(original_image, computed_mask, words, steps, gui
     
     # Load font
     try:
-        font = ImageFont.truetype("font/Arial-Unicode-Regular.ttf", 60)
+        font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 60)
     except IOError:
         font = ImageFont.load_default()
         print("Warning: Font not found, using default font.")

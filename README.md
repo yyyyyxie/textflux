@@ -42,17 +42,39 @@
 
 ## Updates
 
-- **`2025/08/02`**: Our full param [**textflux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) weights and [**textflux-lora-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) weights are now available! Single-line text generation accuracy performance could be significantly enhanced by **10.9%** and **11.2%** respectively👋! 
-- **`2025/08/02`**: Our [**training datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) and [**testing datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) are now available 👋!
-- **`2025/08/01`**: Our [**eval scripts**](https://huggingface.co/yyyyyxie/textflux) are now available 👋!
-- **`2025/05/27`**: Our [**Full-Param Weights**](https://huggingface.co/yyyyyxie/textflux) and [**LoRA Weights**](https://huggingface.co/yyyyyxie/textflux-lora) are now available 🤗!
-- **`2025/05/25`**: Our [**Paper on ArXiv**](https://arxiv.org/abs/2505.17778) is available 🥳!
+- **`2025/08/02`**: Our full param [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) weights and [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) weights are now available! Single-line text generation accuracy performance could be significantly enhanced by **10.9%** and **11.2%** respectively 👋! 
+- **`2025/08/02`**: Our [**Training Datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) and [**Testing Datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) are now available 👋!
+- **`2025/08/01`**: Our [**Eval Scripts**](https://huggingface.co/yyyyyxie/textflux) are now available 👋!
+- **`2025/05/27`**: Our [**Full-Param Weights**](https://huggingface.co/yyyyyxie/textflux) and [**LoRA Weights**](https://huggingface.co/yyyyyxie/textflux-lora) are now available 👋!
+- **`2025/05/25`**: Our [**Paper on ArXiv**](https://arxiv.org/abs/2505.17778) is available 👋!
 
 
 
-## TextFlux-beta Results in Single Line Test Datasets 
+## TextFlux-beta  
 
-This table shows that the TextFlux-beta model achieves a significant performance improvement of approximately **11 points** in single-line text editing, while also boosting inference speed by **1.4 times** compared to previous versions! The [**AMO Sampler**](https://github.com/hxixixh/amo-release) contributed approximately 3 points to this increase. The test dataset is [**ReCTS editing**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets). The weights can be found here([**textflux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) , [**textflux-lora-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta)). 
+We are excited to release [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) and [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta), new versions of our model specifically optimized for single-line text editing.
+
+### Key Advantages
+
+- **Significantly improves the quality** of single-line text rendering.
+- **Increases inference speed** for single-line text by approximately **1.4x**.
+- **Dramatically enhances the accuracy** of small text synthesis.
+
+### How It Works
+
+Considering that single-line editing is a primary use case for many users and generally yields more stable, high-quality results, we have released new weights optimized for this scenario.
+
+Unlike the original model which renders glyphs onto a full-size mask, the beta version utilizes a **single-line image strip** for the glyph condition. This approach not only reduces unnecessary computational overhead but also provides a more stable and high-quality supervisory signal. This leads directly to the significant improvements in both single-line and small text rendering. Like:
+
+<div align="center">
+  <img src="resource/demo_singleline.png" width="62.5%" height="62.5%"/>
+</div>
+
+To use these new models, please refer to the updated files: demo.py, run_inference.py, and run_inference_lora.py. While the beta models retain the ability to generate multi-line text, we **highly recommend** using them for single-line tasks to achieve the best performance and stability.
+
+### Performance
+
+This table shows that the TextFlux-beta model achieves a significant performance improvement of approximately **11 points** in single-line text editing, while also boosting inference speed by **1.4 times** compared to previous versions! The [**AMO Sampler**](https://github.com/hxixixh/amo-release) contributed approximately 3 points to this increase. The test dataset is [**ReCTS editing**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets). 
 
 | Method             | SeqAcc-Editing (%)↑ | NED (%)↑ |  FID ↓   |  LPIPS ↓  | Inference Speed (s/img)↓ |
 | ------------------ | :-----------------: | :------: | :------: | :-------: | :----------------------: |
@@ -71,6 +93,8 @@ This table shows that the TextFlux-beta model achieves a significant performance
 2. **Dependencies:**
 
 ```bash
+git clone https://github.com/yyyyyxie/textflux.git
+cd textflux
 conda create -n textflux python==3.11.4 -y
 conda activate textflux
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
@@ -85,9 +109,59 @@ pip install -e .
 
 ## Gradio Demo
 
-Provides "Normal Mode" (for pre-combined inputs) and "Custom Mode" (upload scene image, draw masks, input text for automatic template generation).
+Provides "Custom Mode" (upload scene image, draw masks, input text for automatic template generation) and "Normal Mode" (for pre-combined inputs).
+
 ```bash
-python demo.py
+# Ensure gradio == 3.50.1
+python demo.py 
+```
+
+
+
+## Training
+
+To reproduce the results from the paper, you'll need to download the [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) dataset and run the multi-line training command found in `scripts/train.sh`.
+
+```
+bash scripts/train.sh
+```
+
+or
+
+```
+bash scripts/train_lora.sh
+```
+
+When training the beta version weights optimized for the single-line task, we fine-tuned for an additional 10,000 steps by loading the weights from the multi-line  [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) and [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora)  models. You'll need to download the [**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) dataset and run the single-line training command in `scripts/train.sh`.
+
+```
+bash scripts/train.sh
+```
+
+or
+
+```
+bash scripts/train_lora.sh
+```
+
+
+
+## Evaluation
+
+First, use the `scripts/batch_eval.sh` script to perform batch inference on the images in the test set.
+
+```
+bash scripts/batch_eval.sh
+```
+
+Once inference is complete, use `eval/eval_ocr.sh` to evaluate the OCR accuracy and `eval/eval_fid_lpips.sh` to evaluate FID and LPIPS scores.
+
+```
+bash eval/eval_ocr.sh
+```
+
+```
+bash eval/eval_fid_lpips.sh
 ```
 
 

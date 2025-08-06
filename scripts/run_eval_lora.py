@@ -221,7 +221,7 @@ def main():
     parser.add_argument('--original_images_dir', type=str, required=True, help='Path to the folder containing original images (e.g., .../original)')
     parser.add_argument('--output_dir', type=str,  default="visualization_results", help='Main output folder for results')
     parser.add_argument('--lora_weights_path', type=str, required=True, help='Path to lora weights')
-    parser.add_argument('--font_path', type=str, default="./font/Arial-Unicode-Regular.ttf", help='Path to the font file (.ttf or .ttc)')
+    parser.add_argument('--font_path', type=str, default="./resource/font/Arial-Unicode-Regular.ttf", help='Path to the font file (.ttf or .ttc)')
     parser.add_argument('--text_height_ratio', type=float, default=0.1667, help='Ratio of top text line height to image width (default: 1/6)')
     parser.add_argument('--steps', type=int, default=30, help='Inference steps')
     parser.add_argument('--guidance_scale', type=float, default=30, help='Guidance scale')

@@ -7,11 +7,14 @@ import os
 import cv2
 import numpy as np
 import torch
-from diffusers import FluxFillPipeline, FluxTransformer2DModel
-from diffusers.utils import check_min_version, load_image
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import transforms
 
+from diffusers import FluxFillPipeline, FluxTransformer2DModel
+from diffusers.utils import check_min_version, load_image
+
+# scheduler = "overshoot" # overshoot or default
+scheduler = "default"
 
 def read_words_from_text(input_text):
     if isinstance(input_text, str) and os.path.exists(input_text):
@@ -47,7 +50,7 @@ def load_flux_pipeline():
         )
 
         state_dict, network_alphas = FluxFillPipeline.lora_state_dict(
-            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-lora/pytorch_lora_weights.safetensors",     
+            pretrained_model_name_or_path_or_dict="yyyyyxie/textflux-beta-lora/pytorch_lora_weights.safetensors",     
             return_alphas=True
         )
         
@@ -88,6 +91,21 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()
+
+    if scheduler == "overshoot":
+        try:
+            from diffusers import StochasticRFOvershotDiscreteScheduler
+            scheduler_config = pipe.scheduler.config
+            scheduler = StochasticRFOvershotDiscreteScheduler.from_config(scheduler_config)
+            overshot_func = lambda t, dt: t + dt
+            
+            pipe.scheduler = scheduler
+            pipe.scheduler.set_c(2.0)
+            pipe.scheduler.set_overshot_func(overshot_func)
+        except ImportError:
+            print("StochasticRFOvershotDiscreteScheduler not found. Please ensure you have used the repo's diffusers.")
+            pass
+
     result = pipe(
         height=new_height,
         width=new_width,
@@ -103,9 +121,83 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
 
     return result
 
-# Keep functions related to custom mode
+def is_multiline_text(words_path):
+    """
+    Check if the text file contains multiple lines of text
+    """
+    words = read_words_from_text(words_path)
+    return len(words) > 1
+
 # =============================================================================
-# 4. Custom mode: Preprocess Mask, Render text in regions, Concatenate composite image
+# Single-line text rendering functions
+# =============================================================================
+def draw_glyph_flexible(font, text, width, height, max_font_size=140):
+    """
+    Renders text horizontally centered on a canvas of specified size and returns a PIL Image.
+    Font size is automatically adjusted to fit the canvas and is limited by max_font_size.
+    """
+    img = Image.new(mode='RGB', size=(width, height), color='black')
+    if not text or not text.strip():
+        return img
+    draw = ImageDraw.Draw(img)
+
+    # Initial font size for calculating scale ratio
+    g_size = 50
+    try:
+        new_font = font.font_variant(size=g_size)
+    except:
+        new_font = font
+
+    left, top, right, bottom = new_font.getbbox(text)
+    text_width_initial = max(right - left, 1)
+    text_height_initial = max(bottom - top, 1)
+
+    # Calculate scale ratios based on width and height
+    width_ratio = width * 0.9 / text_width_initial
+    height_ratio = height * 0.9 / text_height_initial
+    ratio = min(width_ratio, height_ratio)
+
+    # Adjust maximum font size based on original image width
+    if width > 1280:
+        max_font_size = 200
+    final_font_size = int(g_size * ratio)
+    final_font_size = min(final_font_size, max_font_size)  # Apply upper limit
+
+    # Use the final calculated font size
+    try:
+        final_font = font.font_variant(size=max(final_font_size, 10))
+    except:
+        final_font = font
+
+    draw.text((width / 2, height / 2), text, font=final_font, fill='white', anchor='mm')
+    return img
+
+def render_single_line_text(original, words_path):
+    """
+    Render single line text above the original image
+    """
+    w, h = original.size
+    text_height_ratio = 0.15625
+    text_render_height = int(w * text_height_ratio)
+    
+    # Load font
+    try:
+        font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 60)
+    except IOError:
+        font = ImageFont.load_default()
+        print("Warning: Font not found, using default font.")
+    
+    # Read and join text lines into single line
+    text_lines = read_words_from_text(words_path)
+    single_line_text = ' '.join(text_lines)
+    
+    # Render single-line text image
+    text_render_pil = draw_glyph_flexible(font, single_line_text, width=w, height=text_render_height)
+    
+    return text_render_pil, text_render_height
+
+# =============================================================================
+# Multi-line text rendering functions (original functions)
 # =============================================================================
 def extract_mask(original, drawn, threshold=30):
     """
@@ -322,13 +414,23 @@ def process_normal_mode(image_path, mask_path, words_path, steps, guidance_scale
     original_image = Image.open(image_path).convert("RGB")
     mask_image = Image.open(mask_path).convert("RGB")
     
+    # Check if text is single-line or multi-line
+    if is_multiline_text(words_path):
+        print("Using multi-line text rendering mode")
+        return process_multiline_mode(original_image, mask_image, words_path, steps, guidance_scale, seed)
+    else:
+        print("Using single-line text rendering mode")
+        return process_singleline_mode(original_image, mask_image, words_path, steps, guidance_scale, seed)
+
+def process_multiline_mode(original_image, mask_image, words_path, steps, guidance_scale, seed):
+    """Multi-line text processing (original logic)"""
     # Read text and render font
     texts = read_words_from_text(words_path)
     rendered_text = render_glyph_multi(original_image, mask_image, texts)
     
     # Determine concatenation direction
     width, height = original_image.size
-    direction = 'horizontal' if height > width else 'vertical'
+    direction = choose_concat_direction(height, width)
     
     # Concatenate image and mask based on direction
     if direction == 'horizontal':
@@ -351,13 +453,44 @@ def process_normal_mode(image_path, mask_path, words_path, steps, guidance_scale
     else:
         cropped_result = result.crop((0, height // 2, width, height))
     
+    save_results(result, cropped_result, mask_image, original_image, rendered_text, words_path, "multiline")
+    return cropped_result
+
+def process_singleline_mode(original_image, mask_image, words_path, steps, guidance_scale, seed):
+    """Single-line text processing"""
+    # Render single-line text
+    rendered_text, text_render_height = render_single_line_text(original_image, words_path)
+    
+    # Create pure black mask with same size as text rendering
+    text_mask_pil = Image.new("RGB", rendered_text.size, "black")
+    
+    # Always use vertical concatenation for single-line mode
+    combined_image = Image.fromarray(np.vstack((np.array(rendered_text), np.array(original_image))))
+    combined_mask = Image.fromarray(np.vstack((np.array(text_mask_pil), np.array(mask_image))))
+    
+    print("Starting inference...")
+    full_result = run_inference(combined_image, combined_mask, words_path, 
+                               num_steps=steps, guidance_scale=guidance_scale, seed=seed)
+    
+    # Crop result proportionally, keeping only the scene image portion
+    res_w, res_h = full_result.size
+    orig_h = original_image.size[1]  # Original scene image height
+    # Calculate crop line top edge position
+    crop_top_edge = int(res_h * (text_render_height / (orig_h + text_render_height)))
+    cropped_result = full_result.crop((0, crop_top_edge, res_w, res_h))
+    
+    save_results(full_result, cropped_result, mask_image, original_image, rendered_text, words_path, "singleline")
+    return cropped_result
+
+def save_results(result, cropped_result, mask_image, original_image, rendered_text, words_path, mode):
+    """Save all related files"""
     # Create output directories
     os.makedirs("outputs_my", exist_ok=True)
     os.makedirs("outputs_my/crop", exist_ok=True)
     os.makedirs("outputs_my/mask", exist_ok=True)
     os.makedirs("outputs_my/ori", exist_ok=True)
     os.makedirs("outputs_my/txt", exist_ok=True)
-    os.makedirs("outputs_my/rendered", exist_ok=True)  # Added directory for rendered text results
+    os.makedirs("outputs_my/rendered", exist_ok=True)
     
     # Get sequence number and save all related files
     seq = get_next_seq_number()
@@ -369,27 +502,25 @@ def process_normal_mode(image_path, mask_path, words_path, steps, guidance_scale
         "mask": os.path.join("outputs_my/mask", f"mask_{seq}.png"),
         "original_image": os.path.join("outputs_my/ori", f"ori_{seq}.png"),
         "text_file": os.path.join("outputs_my/txt", f"words_{seq}.txt"),
-        "rendered_text_image": os.path.join("outputs_my/rendered", f"rendered_{seq}.png"), # Added saving for rendered text result
+        "rendered_text_image": os.path.join("outputs_my/rendered", f"rendered_{seq}.png"),
     }
     
     result.save(result_paths["full_result"])
     cropped_result.save(result_paths["cropped_result"])
     mask_image.save(result_paths["mask"])
     original_image.save(result_paths["original_image"])
-    rendered_text.save(result_paths["rendered_text_image"]) # Save the rendered text image
+    rendered_text.save(result_paths["rendered_text_image"])
     
     # Copy text file
     import shutil
     shutil.copy2(words_path, result_paths["text_file"])
     
+    print(f"\nProcessing mode: {mode}")
     print("\nFiles saved:")
     for desc, path in result_paths.items():
-        print(f"{desc.replace('_', ' ').title()}: {path}") # Making the description more readable
-    
-    return cropped_result
+        print(f"{desc.replace('_', ' ').title()}: {path}")
 
-
-# python run_inference_lora.py --image resource/example/ori/ori_0001.png --mask resource/example/mask/mask_0001.png --words resource/example/txt/words_0001.txt
+# python run_inference.py --image resource/example/ori/ori_0001.png --mask resource/example/mask/mask_0001.png --words resource/example/txt/words_0001.txt
 def main():
     parser = argparse.ArgumentParser(description='Flux Text Generation CLI')
     parser.add_argument('--image', type=str, required=True,
@@ -404,6 +535,8 @@ def main():
                         help='Guidance scale value')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed')
+    parser.add_argument('--scheduler', type=str, default="", help='Sampler, None or "overshoot"')
+
     
     args = parser.parse_args()
     
@@ -418,3 +551,4 @@ def main():
 if __name__ == "__main__":
     check_min_version("0.30.1")
     main()
+
