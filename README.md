@@ -64,11 +64,8 @@ We are excited to release [**TextFlux-beta**](https://huggingface.co/yyyyyxie/te
 
 Considering that single-line editing is a primary use case for many users and generally yields more stable, high-quality results, we have released new weights optimized for this scenario.
 
-Unlike the original model which renders glyphs onto a full-size mask, the beta version utilizes a **single-line image strip** for the glyph condition. This approach not only reduces unnecessary computational overhead but also provides a more stable and high-quality supervisory signal. This leads directly to the significant improvements in both single-line and small text rendering. Like:
+Unlike the original model which renders glyphs onto a full-size mask, the beta version utilizes a **single-line image strip** for the glyph condition. This approach not only reduces unnecessary computational overhead but also provides a more stable and high-quality supervisory signal. This leads directly to the significant improvements in both single-line and small text rendering (see example [here](resource/demo_singleline.png)).
 
-<div align="center">
-  <img src="resource/demo_singleline.png" width="62.5%" height="62.5%"/>
-</div>
 
 To use these new models, please refer to the updated files: demo.py, run_inference.py, and run_inference_lora.py. While the beta models retain the ability to generate multi-line text, we **highly recommend** using them for single-line tasks to achieve the best performance and stability.
 
