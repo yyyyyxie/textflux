@@ -105,33 +105,82 @@ python demo.py
 
 
 
-## 训练
 
-要复现论文中的结果，你需要下载 [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) 数据集，并执行 scripts/train.sh 中的多行训练命令。
+## 模型训练
 
-```
-bash scripts/train.sh
-```
+本指南提供了训练与微调 **TextFlux** 模型的操作说明。
 
-或者
+-----
 
-```
-bash scripts/train_lora.sh
-```
+### 多行文本训练 (复现论文结果)
 
+请按照以下步骤复现原始论文中的多行文本生成结果。
 
+1.  **准备数据集**
+    下载 [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) 数据集，并按照以下目录结构进行组织：
 
-在训练针对单行任务优化的beta版本权重时，我们通过加载多行   [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) 和 [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora) 的权重，继续微调了 10,000 步。你需要下载[**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 数据集，并执行 scripts/train.sh 中的单行训练命令。
+    ```
+    |- ./datasets
+       |- multi-lingual
+       |  |- processed_mlt2017
+       |  |- processed_ReCTS_train_images
+       |  |- processed_totaltext
+       |  ....
+    ```
 
-```
-bash scripts/train.sh
-```
+2.  **运行训练脚本**
+    执行相应的训练脚本。`train.sh` 用于标准训练，而 `train_lora.sh` 用于 LoRA 训练。
 
-or
+    ```bash
+    # 标准训练
+    bash scripts/train.sh
+    ```
 
-```
-bash scripts/train_lora.sh
-```
+    或
+
+    ```bash
+    # LoRA 训练
+    bash scripts/train_lora.sh
+    ```
+
+    *注意：请确保您使用的是脚本中为**多行**训练指定的命令和配置。*
+
+-----
+
+### 单行文本训练 (微调)
+
+为了创建针对单行任务优化的 TextFlux Beta 版权重，我们对预训练的多行模型进行了微调。具体来说，我们加载了 [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) 和 [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora) 模型的权重，并在单行数据集上额外进行了 10,000 步的训练。
+
+如果您希望复现此过程，可以按照以下步骤操作：
+
+1.  **准备数据集**
+    首先，下载 [**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 数据集，并按如下方式组织：
+
+    ```
+    |- ./datasets
+       |- anyword
+       |  |- ReCTS
+       |  |- TotalText
+       |  |- ArT
+       |  ...
+       ....
+    ```
+
+2.  **运行微调脚本**
+    请确保您的脚本已配置为加载多行模型的预训练权重，然后执行微调命令。
+
+    ```bash
+    # 标准微调
+    bash scripts/train.sh
+    ```
+
+    或
+
+    ```bash
+    # LoRA 微调
+    bash scripts/train_lora.sh
+    ```
+
 
 
 

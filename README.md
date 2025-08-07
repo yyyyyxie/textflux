@@ -117,29 +117,79 @@ python demo.py
 
 ## Training
 
-To reproduce the results from the paper, you'll need to download the [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) dataset and run the multi-line training command found in `scripts/train.sh`.
+This guide provides instructions for training and fine-tuning the **TextFlux** models.
 
-```
-bash scripts/train.sh
-```
+-----
 
-or
+### Multi-line Training (Reproducing Paper Results)
 
-```
-bash scripts/train_lora.sh
-```
+Follow these steps to reproduce the multi-line text generation results from the original paper.
 
-When training the beta version weights optimized for the single-line task, we fine-tuned for an additional 10,000 steps by loading the weights from the multi-line  [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) and [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora)  models. You'll need to download the [**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) dataset and run the single-line training command in `scripts/train.sh`.
+1.  **Prepare the Dataset**
+    Download the [**Multi-line**](https://huggingface.co/datasets/yyyyyxie/textflux-multi-line) dataset and organize it using the following directory structure:
 
-```
-bash scripts/train.sh
-```
+    ```
+    |- ./datasets
+       |- multi-lingual
+       |  |- processed_mlt2017
+       |  |- processed_ReCTS_train_images
+       |  |- processed_totaltext
+       |  ....
+    ```
 
-or
+2.  **Run the Training Script**
+    Execute the appropriate training script. The `train.sh` script is for standard training, while `train_lora.sh` is for training with LoRA.
 
-```
-bash scripts/train_lora.sh
-```
+    ```bash
+    # For standard training
+    bash scripts/train.sh
+    ```
+
+    or
+
+    ```bash
+    # For LoRA training
+    bash scripts/train_lora.sh
+    ```
+
+    *Note: Ensure you are using the commands and configurations within the script designated for **multi-line** training.*
+
+-----
+
+
+### Single-line Training
+
+To create our TextFlux beta weights optimized for the single-line task, we fine-tuned our pre-trained multi-line models. Specifically, we loaded the weights from the [**TextFlux**](https://huggingface.co/yyyyyxie/textflux) and [**TextFLux-LoRA**](https://huggingface.co/yyyyyxie/textflux-lora) models and continued training for an additional 10,000 steps on a single-line dataset.
+
+If you wish to replicate this process, you can follow these steps:
+
+1.  **Prepare the Dataset**
+    First, download the [**Single-line**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) dataset and arrange it as follows:
+
+    ```
+    |- ./datasets
+       |- anyword
+       |  |- ReCTS
+       |  |- TotalText
+       |  |- ArT
+       |  ...
+       ....
+    ```
+
+2.  **Run the Fine-tuning Script**
+    Ensure your script is configured to load the weights from a pre-trained multi-line model, and then execute the fine-tuning command.
+
+    ```bash
+    # For standard fine-tuning
+    bash scripts/train.sh
+    ```
+
+    or
+
+    ```bash
+    # For LoRA fine-tuning
+    bash scripts/train_lora.sh
+    ```
 
 
 
