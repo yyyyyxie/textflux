@@ -13,8 +13,8 @@ from torchvision import transforms
 from diffusers import FluxFillPipeline, FluxTransformer2DModel
 from diffusers.utils import check_min_version, load_image
 
-# scheduler = "overshoot" # overshoot or default
-scheduler = "default"
+# scheduler_name = "overshoot" # overshoot or default
+scheduler_name = "default"
 
 def read_words_from_text(input_text):
     if isinstance(input_text, str) and os.path.exists(input_text):
@@ -76,7 +76,7 @@ def run_inference(image_input, mask_input, words_input, num_steps=50, guidance_s
     generator = torch.Generator(device="cuda").manual_seed(int(seed))
     pipe = load_flux_pipeline()
 
-    if scheduler == "overshoot":
+    if scheduler_name == "overshoot":
         try:
             from diffusers import StochasticRFOvershotDiscreteScheduler
             scheduler_config = pipe.scheduler.config
