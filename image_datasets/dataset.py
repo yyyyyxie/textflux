@@ -37,7 +37,7 @@ def image_resize(img, max_size=512):
         new_w = int((max_size / h) * w)
     return img.resize((new_w, new_h))
 
-def generate_prompt_for_inpaint(words):
+def generate_prompt(words):
     words_str = ', '.join(f"'{word}'" for word in words)
     prompt_template = (
         "The pair of images highlights some white words on a black background, as well as their style on a real-world scene image. "
@@ -226,7 +226,7 @@ class DynamicConcatDataset(Dataset):
             combined_mask_np = np.vstack((empty_mask_np, mask_np_real))
                 
             selected_texts = [text]
-            prompt = generate_prompt_for_inpaint(selected_texts)
+            prompt = generate_prompt(selected_texts)
             
             # drop_prob = 0.1
             # if random.random() < drop_prob:

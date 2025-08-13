@@ -7,7 +7,7 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 # mkdir -p weights/transformer && mv yyyyyxie/textflux/* weights/transformer
 accelerate launch --config_file accelerate_config.yaml scripts/train.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
-  --pretrained_inpaint_model_name_or_path="weights/transformer" \
+  --pretrained_inpaint_model_name_or_path="weights" \
   --instance_data_dir=$INSTANCE_DIR \
   --output_dir=$OUTPUT_DIR \
   --mixed_precision="bf16" \
