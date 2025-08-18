@@ -12,8 +12,8 @@ from diffusers import FluxFillPipeline, FluxTransformer2DModel
 from diffusers.utils import check_min_version, load_image
 
 WEIGHT_PATH = "yyyyyxie/textflux-beta/transformer"  # yyyyyxie/textflux
-# scheduler_name = "overshoot" # overshoot or default
-scheduler_name = "default"
+scheduler_name = "overshoot" # overshoot or default
+# scheduler_name = "default"
 
 
 def read_words_from_text(input_text):
