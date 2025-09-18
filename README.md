@@ -42,6 +42,7 @@
 
 ## Updates
 
+- **`2025/09/18`**:  The [**TextFlux ComfyUI**](https://github.com/yyyyyxie/textflux_comfyui) script is now available. It is simple to use and requires almost no changes to existing **Flux** workflows.
 - **`2025/08/02`**: Our full param [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) weights and [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) weights are now available! Single-line text generation accuracy performance could be significantly enhanced by **10.9%** and **11.2%** respectively 👋! 
 - **`2025/08/02`**: Our [**Training Datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) and [**Testing Datasets**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) are now available 👋!
 - **`2025/08/01`**: Our [**Eval Scripts**](https://huggingface.co/yyyyyxie/textflux) are now available 👋!
@@ -218,7 +219,7 @@ bash eval/eval_fid_lpips.sh
 - [x] Release the training datasets and testing datasets
 - [x] Release the training scripts
 - [x] Release the eval scripts
-- [ ] Support comfyui
+- [x] Support comfyui
 
 
 

@@ -204,9 +204,12 @@ def draw_glyph_flexible(font, text, width, height, max_font_size=140):
     height_ratio = height * 0.9 / text_height_initial
     ratio = min(width_ratio, height_ratio)
 
-    # Adjust maximum font size based on original image width
-    if width > 1280:
-        max_font_size = 200
+    # Adjust maximum font size based on original image width (to match dataset script)
+    if width > 2048:
+        max_font_size = 280
+    elif width > 1280:
+        max_font_size = 180
+
     final_font_size = int(g_size * ratio)
     final_font_size = min(final_font_size, max_font_size)  # Apply upper limit
 
@@ -218,173 +221,6 @@ def draw_glyph_flexible(font, text, width, height, max_font_size=140):
 
     draw.text((width / 2, height / 2), text, font=final_font, fill='white', anchor='mm')
     return img
-
-# =============================================================================
-# Multi-line text rendering functions
-# =============================================================================
-def insert_spaces(text, num_spaces):
-    """
-    Inserts a specified number of spaces between each character to adjust the spacing during text rendering.
-    """
-    if len(text) <= 1:
-        return text
-    return (' ' * num_spaces).join(list(text))
-
-
-def draw_glyph2(
-    font,
-    text,
-    polygon,
-    vertAng=10,
-    scale=1,
-    width=512,
-    height=512,
-    add_space=True,
-    scale_factor=2,
-    rotate_resample=Image.BICUBIC,
-    downsample_resample=Image.Resampling.LANCZOS
-):
-    big_w = width * scale_factor
-    big_h = height * scale_factor
-
-    big_polygon = polygon * scale_factor * scale
-    rect = cv2.minAreaRect(big_polygon.astype(np.float32))
-    box = cv2.boxPoints(rect)
-    box = np.intp(box)
-
-    w, h = rect[1]
-    angle = rect[2]
-    if angle < -45:
-        angle += 90
-    angle = -angle
-    if w < h:
-        angle += 90
-
-    vert = False
-    if (abs(angle) % 90 < vertAng or abs(90 - abs(angle) % 90) % 90 < vertAng):
-        _w = max(box[:, 0]) - min(box[:, 0])
-        _h = max(box[:, 1]) - min(box[:, 1])
-        if _h >= _w:
-            vert = True
-            angle = 0
-
-    big_img = Image.new("RGBA", (big_w, big_h), (0, 0, 0, 0))
-    tmp = Image.new("RGB", big_img.size, "white")
-    tmp_draw = ImageDraw.Draw(tmp)
-
-    _, _, _tw, _th = tmp_draw.textbbox((0, 0), text, font=font)
-    if _th == 0:
-        text_w = 0
-    else:
-        w_f, h_f = float(w), float(h)
-        text_w = min(w_f, h_f) * (_tw / _th)
-
-    if text_w <= max(w, h):
-        if len(text) > 1 and not vert and add_space:
-            for i in range(1, 100):
-                text_sp = insert_spaces(text, i)
-                _, _, tw2, th2 = tmp_draw.textbbox((0, 0), text_sp, font=font)
-                if th2 != 0:
-                    if min(w, h) * (tw2 / th2) > max(w, h):
-                        break
-            text = insert_spaces(text, i-1)
-        font_size = min(w, h) * 0.80
-    else:
-        shrink = 0.75 if vert else 0.85
-        if text_w != 0:
-            font_size = min(w, h) / (text_w / max(w, h)) * shrink
-        else:
-            font_size = min(w, h) * 0.80
-
-    new_font = font.font_variant(size=int(font_size))
-    left, top, right, bottom = new_font.getbbox(text)
-    text_width = right - left
-    text_height = bottom - top
-
-    layer = Image.new("RGBA", big_img.size, (0, 0, 0, 0))
-    draw_layer = ImageDraw.Draw(layer)
-    cx, cy = rect[0]
-    if not vert:
-        draw_layer.text(
-            (cx - text_width // 2, cy - text_height // 2 - top),
-            text,
-            font=new_font,
-            fill=(255, 255, 255, 255)
-        )
-    else:
-        _w_ = max(box[:, 0]) - min(box[:, 0])
-        x_s = min(box[:, 0]) + _w_ // 2 - text_height // 2
-        y_s = min(box[:, 1])
-        for c in text:
-            draw_layer.text((x_s, y_s), c, font=new_font, fill=(255, 255, 255, 255))
-            _, _t, _, _b = new_font.getbbox(c)
-            y_s += _b
-
-    rotated_layer = layer.rotate(
-        angle,
-        expand=True,
-        center=(cx, cy),
-        resample=rotate_resample
-    )
-
-    xo = int((big_img.width - rotated_layer.width) // 2)
-    yo = int((big_img.height - rotated_layer.height) // 2)
-    big_img.paste(rotated_layer, (xo, yo), rotated_layer)
-
-    final_img = big_img.resize((width, height), downsample_resample)
-    final_np = np.array(final_img)
-    return final_np
-
-def render_glyph_multi(original, computed_mask, texts):
-    mask_np = np.array(computed_mask.convert("L"))
-    contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    regions = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        if w * h < 50:
-            continue
-        regions.append((x, y, w, h, cnt))
-    regions = sorted(regions, key=lambda r: (r[1], r[0]))
-    
-    render_img = Image.new("RGBA", original.size, (0, 0, 0, 0))
-    try:
-        base_font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 40)
-    except:
-        base_font = ImageFont.load_default()
-    
-    for i, region in enumerate(regions):
-        if i >= len(texts):
-            break
-        text = texts[i].strip()
-        if not text:
-            continue
-        cnt = region[4]
-        polygon = cnt.reshape(-1, 2)
-        rendered_np = draw_glyph2(
-            font=base_font,
-            text=text,
-            polygon=polygon,
-            vertAng=10,
-            scale=1,
-            width=original.size[0],
-            height=original.size[1],
-            add_space=True,
-            scale_factor=1,
-            rotate_resample=Image.BICUBIC,
-            downsample_resample=Image.Resampling.LANCZOS
-        )
-        rendered_img = Image.fromarray(rendered_np, mode="RGBA")
-        render_img = Image.alpha_composite(render_img, rendered_img)
-    return render_img.convert("RGB")
-
-
-def choose_concat_direction(height, width):
-    """
-    Selects the concatenation direction based on the original image's aspect ratio:
-    - If height is greater than width, horizontal concatenation is used.
-    - Otherwise, vertical concatenation is used.
-    """
-    return 'horizontal' if height > width else 'vertical'
 
 def is_multiline_text(text):
     """
@@ -404,50 +240,84 @@ def flux_demo_custom(original_image, drawn_mask, words, steps, guidance_scale, s
     - If text is single line, uses single-line rendering
     """
     computed_mask = extract_mask(original_image, drawn_mask)
-    return flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed)
-
     
-    # # Determine rendering mode based on text input
-    # if is_multiline_text(words):
-    #     print("Using multi-line text rendering mode")
-    #     return flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed)
-    # else:
-    #     print("Using single-line text rendering mode")
-    #     return flux_demo_custom_singleline(original_image, computed_mask, words, steps, guidance_scale, seed)
+    # Determine rendering mode based on text input
+    if is_multiline_text(words):
+        print("Using multi-line text rendering mode (stacking)")
+        return flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed)
+    else:
+        print("Using single-line text rendering mode")
+        return flux_demo_custom_singleline(original_image, computed_mask, words, steps, guidance_scale, seed)
 
 def flux_demo_custom_multiline(original_image, computed_mask, words, steps, guidance_scale, seed):
     """
-    Multi-line rendering mode:
-    1. Splits the user-input text into a list by line, with each line corresponding to a mask region.
-    2. Calls render_glyph_multi for each independent region to render skewed/curved text, generating a rendered image.
-    3. Selects the concatenation direction based on the original image's dimensions.
-    4. Passes the concatenated images to run_inference, returning the generated result and cropped image.
+    Multi-line rendering mode using the "stacking" method.
+    1. Splits user input into a list of text lines.
+    2. For each line, renders a glyph image on a canvas.
+    3. Vertically stacks all rendered glyph images, followed by the original scene image.
+    4. Stacks corresponding blank masks and the user-drawn mask in the same order.
+    5. Passes the concatenated images to run_inference and returns the cropped result.
     """
+    # 1. Get text lines
     texts = read_words_from_text(words)
-    render_img = render_glyph_multi(original_image, computed_mask, texts)
-    width, height = original_image.size
-    empty_mask = np.zeros((height, width), dtype=np.uint8)
-    direction = choose_concat_direction(height, width)
-    if direction == 'horizontal':
-        combined_image = np.hstack((np.array(render_img), np.array(original_image)))
-        combined_mask = np.hstack((empty_mask, np.array(computed_mask.convert("L"))))
-    else:
-        combined_image = np.vstack((np.array(render_img), np.array(original_image)))
-        combined_mask = np.vstack((empty_mask, np.array(computed_mask.convert("L"))))
-    combined_mask = cv2.cvtColor(combined_mask, cv2.COLOR_GRAY2RGB)
-    composite_image = Image.fromarray(combined_image)
-    composite_mask = Image.fromarray(combined_mask)
-    result = run_inference(composite_image, composite_mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
-
-    # Crop the result, keeping only the scene image portion.
-    width, height = result.size
-    if direction == 'horizontal':
-        cropped_result = result.crop((width // 2, 0, width, height))
-    else:
-        cropped_result = result.crop((0, height // 2, width, height))
+    if not texts:
+        raise gr.Error("Text input cannot be empty for multi-line mode.")
     
-    save_results(result, cropped_result, computed_mask, original_image, composite_image, words)
+    w, h = original_image.size
+    
+    # 2. Load font
+    try:
+        font = ImageFont.truetype("resource/font/Arial-Unicode-Regular.ttf", 60)
+    except IOError:
+        font = ImageFont.load_default()
+        print("Warning: Font not found, using default font.")
+
+    # 3. Prepare lists for stacking
+    images_to_stack_np = []
+    masks_to_stack_np = []
+    
+    # 4. Calculate render height for each line's canvas (logic from Dataset script)
+    num_texts = len(texts)
+    glyph_canvas_height = min(w // 6, h // num_texts)
+    glyph_canvas_height = max(1, glyph_canvas_height)
+
+    # 5. Loop and render each text line
+    for text in texts:
+        # Render glyph for the current text line
+        glyph_pil = draw_glyph_flexible(font, text, width=w, height=glyph_canvas_height)
+        images_to_stack_np.append(np.array(glyph_pil))
+        
+        # Create a corresponding blank mask (black RGB image)
+        blank_mask_np = np.zeros((glyph_canvas_height, w, 3), dtype=np.uint8)
+        masks_to_stack_np.append(blank_mask_np)
+
+    # 6. Append the original image and its user-drawn mask
+    images_to_stack_np.append(np.array(original_image))
+    masks_to_stack_np.append(np.array(computed_mask))
+
+    # 7. Use vstack for vertical stacking ("叠罗汉")
+    composite_image_np = np.vstack(images_to_stack_np)
+    composite_mask_np = np.vstack(masks_to_stack_np)
+
+    composite_image = Image.fromarray(composite_image_np)
+    composite_mask = Image.fromarray(composite_mask_np)
+
+    # 8. Call model inference
+    full_result = run_inference(composite_image, composite_mask, words, num_steps=steps, guidance_scale=guidance_scale, seed=seed)
+
+    # 9. Crop the result proportionally to keep only the scene image part
+    res_w, res_h = full_result.size
+    orig_h = h  # Original scene image height
+    total_text_render_height = glyph_canvas_height * num_texts
+
+    # Calculate the y-coordinate where the original image part starts in the final result
+    crop_top_edge = int(res_h * (total_text_render_height / (orig_h + total_text_render_height)))
+    cropped_result = full_result.crop((0, crop_top_edge, res_w, res_h))
+
+    # 10. Save all generated images and return results for Gradio UI
+    save_results(full_result, cropped_result, computed_mask, original_image, composite_image, words)
     return cropped_result, composite_image, composite_mask
+
 
 def flux_demo_custom_singleline(original_image, computed_mask, words, steps, guidance_scale, seed):
     """
@@ -587,7 +457,6 @@ with gr.Blocks(title="Flux Inference Demo") as demo:
           - **Single-line mode**: Enter text without line breaks - all text will be joined and rendered as one line above the image
           - **Multi-line mode**: Enter text with line breaks - each line will be rendered in the corresponding mask region with skewed/curved effects
           - The system automatically detects which mode to use based on your text input
-        - **Normal Mode**: Directly upload an image, mask, and a list of words to generate the result image.
         """
     )
 

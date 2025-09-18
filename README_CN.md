@@ -38,9 +38,9 @@
 <div align="center">
   <img src="resource/abstract_fig.png" width="100%" height="100%"/>
 </div>
-
 ## 最新动态
 
+-   **`2025/09/18`**: [**TextFlux的ComfyUI**](https://github.com/yyyyyxie/textflux_comfyui)脚本可获得，简单易用，几乎无需更改现有的Flux本身工作流。
 -   **`2025/08/02`**: 我们的全参数  [**TextFlux-beta**](https://huggingface.co/yyyyyxie/textflux-beta) 权重和 [**TextFlux-LoRA-beta**](https://huggingface.co/yyyyyxie/textflux-lora-beta) 权重现已发布！单行文本生成准确率分别显著提升了 **10.9% 和 11.2%** 👋！
 -   **`2025/08/02`**: [**训练集**](https://huggingface.co/datasets/yyyyyxie/textflux-anyword) 和 [**测试集**](https://huggingface.co/datasets/yyyyyxie/textflux-test-datasets) 现已可获得👋!
 -   **`2025/08/01`**: 我们的 [**评估脚本**](https://huggingface.co/yyyyyxie/textflux) 现已可获得 👋!
@@ -209,7 +209,7 @@ bash eval/eval_fid_lpips.sh
 - [x] 发布训练数据集和测试数据集
 - [x] 发布训练脚本
 - [x] 发布评估脚本
-- [ ] 支持 ComfyUI
+- [x] 支持 ComfyUI
 
 ## 致谢
 
